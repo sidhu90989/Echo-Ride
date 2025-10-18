@@ -23,6 +23,7 @@ import {
 import { useToast } from "@/hooks/use-toast";
 import { apiRequest } from "@/lib/queryClient";
 import { useLocation } from "wouter";
+import type { DriverStats, Ride } from "@/types/api";
 
 export default function DriverDashboard() {
   const { user, signOut } = useAuth();
@@ -32,12 +33,12 @@ export default function DriverDashboard() {
   const [isAvailable, setIsAvailable] = useState(false);
   const [femalePref, setFemalePref] = useState(false);
 
-  const { data: stats, isLoading } = useQuery({
+  const { data: stats, isLoading } = useQuery<DriverStats>({
     queryKey: ["/api/driver/stats"],
     enabled: !!user,
   });
 
-  const { data: pendingRides } = useQuery({
+  const { data: pendingRides } = useQuery<Ride[]>({
     queryKey: ["/api/driver/pending-rides"],
     enabled: !!user && isAvailable,
     refetchInterval: isAvailable ? 5000 : false,

@@ -15,6 +15,8 @@ import RewardsPage from "@/pages/rider/RewardsPage";
 import DriverDashboard from "@/pages/driver/DriverDashboard";
 import AdminDashboard from "@/pages/admin/AdminDashboard";
 import NotFoundPage from "@/pages/NotFoundPage";
+import RideTrackPage from "@/pages/rider/RideTrackPage";
+import DriveRidePage from "@/pages/driver/DriveRidePage";
 
 function ProtectedRoute({ 
   component: Component, 
@@ -68,10 +70,16 @@ function Router() {
       <Route path="/rider/rewards">
         <ProtectedRoute component={RewardsPage} allowedRoles={["rider"]} />
       </Route>
+      <Route path="/rider/ride/:id">
+        <ProtectedRoute component={RideTrackPage} allowedRoles={["rider"]} />
+      </Route>
 
       {/* Driver Routes */}
       <Route path="/driver">
         <ProtectedRoute component={DriverDashboard} allowedRoles={["driver"]} />
+      </Route>
+      <Route path="/driver/ride/:id">
+        <ProtectedRoute component={DriveRidePage} allowedRoles={["driver"]} />
       </Route>
 
       {/* Admin Routes */}

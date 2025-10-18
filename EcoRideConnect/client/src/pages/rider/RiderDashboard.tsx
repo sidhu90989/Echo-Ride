@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { useAuth } from "@/contexts/AuthContext";
 import { Button } from "@/components/ui/button";
@@ -15,6 +15,8 @@ import { useToast } from "@/hooks/use-toast";
 import { apiRequest } from "@/lib/queryClient";
 import { useLocation } from "wouter";
 import { ThemeToggle } from "@/components/ThemeToggle";
+import type { RiderStats } from "@/types/api";
+import { RideMap, type LatLng } from "@/components/maps/RideMap";
 
 type VehicleType = "e_rickshaw" | "e_scooter" | "cng_car";
 
@@ -33,11 +35,28 @@ export default function RiderDashboard() {
     e_scooter: 30,
     cng_car: 80,
   });
+  const [riderLoc, setRiderLoc] = useState<LatLng | null>(null);
+  const mapsKey = import.meta.env.VITE_GOOGLE_MAPS_API_KEY as string | undefined;
 
-  const { data: stats, isLoading } = useQuery({
+  const { data: stats, isLoading } = useQuery<RiderStats>({
     queryKey: ["/api/rider/stats"],
     enabled: !!user,
   });
+
+  useEffect(() => {
+    let watchId: number | null = null;
+    if ("geolocation" in navigator) {
+      watchId = navigator.geolocation.watchPosition(
+        (pos) => {
+          const { latitude, longitude } = pos.coords;
+          setRiderLoc({ lat: latitude, lng: longitude });
+        },
+        () => {},
+        { enableHighAccuracy: true, maximumAge: 5000, timeout: 10000 },
+      );
+    }
+    return () => { if (watchId !== null) navigator.geolocation.clearWatch(watchId); };
+  }, []);
 
   const handleBookRide = async () => {
     if (!pickupLocation.trim() || !dropoffLocation.trim()) {
@@ -189,21 +208,29 @@ export default function RiderDashboard() {
           />
         )}
 
-        {/* Map Placeholder & Booking */}
+        {/* Live Map & Booking */}
         <Card className="overflow-hidden">
-          <div className="bg-gradient-to-br from-eco-mint to-eco-mint/50 dark:from-eco-dark-green/20 dark:to-eco-dark-green/10 h-64 flex items-center justify-center border-b">
-            <div className="text-center space-y-4">
-              <div className="p-4 bg-background/80 backdrop-blur-sm rounded-full inline-block">
-                <MapPin className="h-12 w-12 text-primary" />
-              </div>
-              <div>
-                <h3 className="font-serif font-semibold text-lg">Interactive Map</h3>
-                <p className="text-sm text-muted-foreground">
-                  Real-time tracking will be available here
-                </p>
+          {mapsKey ? (
+            <RideMap
+              apiKey={mapsKey}
+              rider={riderLoc}
+              height={256}
+            />
+          ) : (
+            <div className="bg-gradient-to-br from-eco-mint to-eco-mint/50 dark:from-eco-dark-green/20 dark:to-eco-dark-green/10 h-64 flex items-center justify-center border-b">
+              <div className="text-center space-y-4">
+                <div className="p-4 bg-background/80 backdrop-blur-sm rounded-full inline-block">
+                  <MapPin className="h-12 w-12 text-primary" />
+                </div>
+                <div>
+                  <h3 className="font-serif font-semibold text-lg">Interactive Map</h3>
+                  <p className="text-sm text-muted-foreground">
+                    Add VITE_GOOGLE_MAPS_API_KEY to enable the live map
+                  </p>
+                </div>
               </div>
             </div>
-          </div>
+          )}
 
           <div className="p-6">
             <Button

@@ -16,16 +16,17 @@ import {
 } from "lucide-react";
 import { useAuth } from "@/contexts/AuthContext";
 import { useLocation } from "wouter";
+import type { AdminStats, Ride } from "@/types/api";
 
 export default function AdminDashboard() {
   const { signOut } = useAuth();
   const [, setLocation] = useLocation();
 
-  const { data: stats, isLoading } = useQuery({
+  const { data: stats, isLoading } = useQuery<AdminStats>({
     queryKey: ["/api/admin/stats"],
   });
 
-  const { data: activeRides } = useQuery({
+  const { data: activeRides } = useQuery<Ride[]>({
     queryKey: ["/api/admin/active-rides"],
     refetchInterval: 5000,
   });

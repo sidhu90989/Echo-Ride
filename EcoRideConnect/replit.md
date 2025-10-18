@@ -100,6 +100,7 @@ EcoRide is a comprehensive ride-sharing platform focused on eco-friendly transpo
 - `VITE_STRIPE_PUBLIC_KEY` - Stripe publishable key
 - `STRIPE_SECRET_KEY` - Stripe secret key
 - `DATABASE_URL` - PostgreSQL connection string
+ - `SIMPLE_AUTH` - when `true`, enables session-based local auth (no Firebase/Stripe required)
 
 ## Recent Changes (Task 1 - Schema & Frontend)
 - ✅ Defined complete database schema with 8 core tables and relations
