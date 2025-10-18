@@ -1,3 +1,8 @@
+import { config } from "dotenv";
+config();
+// eslint-disable-next-line no-console
+console.log(`[storage] module initialized. SIMPLE_AUTH=${process.env.SIMPLE_AUTH} DATABASE_URL=${process.env.DATABASE_URL ? 'SET' : 'MISSING'}`);
+
 import {
   users,
   driverProfiles,
@@ -27,11 +32,33 @@ import {
 import { eq, and, or, desc, sql } from "drizzle-orm";
 import { customAlphabet } from "nanoid";
 
-const SIMPLE_AUTH = process.env.SIMPLE_AUTH === "true";
+// Note: don't read SIMPLE_AUTH at module import time because dotenv may not be loaded yet.
+// We'll evaluate it at runtime inside getInstance().
 
-async function getDb() {
+async function getDb(): Promise<any> {
   const { db } = await import("./db");
-  return db;
+  if (!db) {
+    throw new Error("[db] Not initialized. Attempted to use database storage while SIMPLE_AUTH=true");
+  }
+  return db as any;
+}
+
+// Storage selector: use memory storage in SIMPLE_AUTH mode, database otherwise
+class StorageSelector {
+  private static instance: IStorage;
+
+  static getInstance(): IStorage {
+    if (!this.instance) {
+      // Force in-memory storage strictly based on SIMPLE_AUTH flag
+      const simple = process.env.SIMPLE_AUTH === 'true';
+      // eslint-disable-next-line no-console
+      console.log(`[storage] selecting storage. SIMPLE_AUTH=${process.env.SIMPLE_AUTH} -> ${simple ? 'memory' : 'database'}`);
+      this.instance = simple ? new MemoryStorage() : new DatabaseStorage();
+      // eslint-disable-next-line no-console
+      console.log(`[storage] using ${simple ? 'memory' : 'database'} storage`);
+    }
+    return this.instance;
+  }
 }
 
 export interface IStorage {
@@ -299,7 +326,7 @@ export class DatabaseStorage implements IStorage {
     const profile = await this.getDriverProfile(userId);
     
     const db = await getDb();
-    const todayRides = await db
+    const todayRides: Ride[] = await db
       .select()
       .from(ridesTable)
       .where(and(
@@ -308,10 +335,9 @@ export class DatabaseStorage implements IStorage {
         sql`DATE(${ridesTable.completedAt}) = CURRENT_DATE`
       ));
 
-    const todayEarnings = todayRides.reduce(
-      (sum, ride) => sum + Number(ride.actualFare || 0), 
-      0
-    );
+    const todayEarnings = todayRides.reduce((sum: number, ride: Ride) => {
+      return sum + Number(ride.actualFare || 0);
+    }, 0);
 
     return {
       totalRides: profile?.totalRides || 0,
@@ -332,27 +358,25 @@ export class DatabaseStorage implements IStorage {
       .from(driverProfiles)
       .where(eq(driverProfiles.isAvailable, true));
 
-    const allRides = await db.select().from(ridesTable);
-    
-    const completedRides = allRides.filter(r => r.status === 'completed');
-    const totalRevenue = completedRides.reduce(
-      (sum, ride) => sum + Number(ride.actualFare || 0), 
-      0
-    );
-    
-    const totalCO2 = completedRides.reduce(
-      (sum, ride) => sum + Number(ride.co2Saved || 0), 
-      0
-    );
+    const allRides: Ride[] = await db.select().from(ridesTable);
 
-    const todayRides = allRides.filter(
-      r => r.requestedAt && new Date(r.requestedAt).toDateString() === new Date().toDateString()
-    );
+    const completedRides = allRides.filter((r: Ride) => r.status === 'completed');
+    const totalRevenue = completedRides.reduce((sum: number, ride: Ride) => {
+      return sum + Number(ride.actualFare || 0);
+    }, 0);
+
+    const totalCO2 = completedRides.reduce((sum: number, ride: Ride) => {
+      return sum + Number(ride.co2Saved || 0);
+    }, 0);
+
+    const todayRides = allRides.filter((r: Ride) => {
+      return !!(r.requestedAt && new Date(r.requestedAt).toDateString() === new Date().toDateString());
+    });
 
     const vehicleStats = {
-      e_rickshaw: allRides.filter(r => r.vehicleType === 'e_rickshaw').length,
-      e_scooter: allRides.filter(r => r.vehicleType === 'e_scooter').length,
-      cng_car: allRides.filter(r => r.vehicleType === 'cng_car').length,
+      e_rickshaw: allRides.filter((r: Ride) => r.vehicleType === 'e_rickshaw').length,
+      e_scooter: allRides.filter((r: Ride) => r.vehicleType === 'e_scooter').length,
+      cng_car: allRides.filter((r: Ride) => r.vehicleType === 'cng_car').length,
     };
 
     return {
@@ -550,4 +574,5 @@ class MemoryStorage implements IStorage {
   }
 }
 
-export const storage: IStorage = SIMPLE_AUTH ? new MemoryStorage() : new DatabaseStorage();
+// Export storage instance using the selector
+export const storage: IStorage = StorageSelector.getInstance();

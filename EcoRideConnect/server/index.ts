@@ -1,3 +1,6 @@
+import { config } from "dotenv";
+config(); // Load environment variables from .env file
+
 import express, { type Request, Response, NextFunction } from "express";
 import session from "express-session";
 import MemoryStoreFactory from "memorystore";
@@ -5,21 +8,28 @@ import { registerRoutes } from "./routes";
 import { setupVite, serveStatic, log } from "./vite";
 
 const app = express();
+// Trust the first proxy (required for secure cookies behind proxies like Codespaces)
+app.set('trust proxy', 1);
 app.use(express.json());
 app.use(express.urlencoded({ extended: false }));
 
 // Session setup for SIMPLE_AUTH/local dev flows
 const MemoryStore = MemoryStoreFactory(session);
+const isCodespaces = !!process.env.CODESPACES;
+const forceSecure = process.env.COOKIE_SECURE === 'true';
+const useSecureCookies = isCodespaces || forceSecure;
+const sameSitePolicy: "lax" | "none" = useSecureCookies ? "none" : "lax";
 app.use(
   session({
     secret: process.env.SESSION_SECRET || "dev-session-secret",
     resave: false,
     saveUninitialized: false,
     store: new MemoryStore({ checkPeriod: 1000 * 60 * 60 }), // prune expired every hour
+    proxy: true, // honor X-Forwarded-* headers for secure cookies
     cookie: {
-      secure: false, // set true when behind HTTPS/proxy with trust proxy configured
+      secure: useSecureCookies, // required when served over HTTPS via proxy
       httpOnly: true,
-      sameSite: "lax",
+      sameSite: sameSitePolicy,
       maxAge: 1000 * 60 * 60 * 8, // 8 hours
     },
   }),

@@ -94,9 +94,10 @@ export default function LoginPage() {
         setLocation("/rider");
       }
     } catch (error) {
+      const message = error instanceof Error ? error.message : "Failed to complete profile. Please try again.";
       toast({
         title: "Error",
-        description: "Failed to complete profile. Please try again.",
+        description: message,
         variant: "destructive",
       });
     } finally {
