@@ -1,3 +1,6 @@
+import { config } from "dotenv";
+config(); // Load environment variables
+
 import type { Express } from "express";
 import { createServer, type Server } from "http";
 import { WebSocketServer, WebSocket } from "ws";
@@ -7,6 +10,11 @@ import admin from "firebase-admin";
 
 // Flags
 const SIMPLE_AUTH = process.env.SIMPLE_AUTH === "true";
+console.log("🔧 Environment check:", {
+  SIMPLE_AUTH,
+  STRIPE_SECRET_KEY: process.env.STRIPE_SECRET_KEY ? "SET" : "NOT SET",
+  NODE_ENV: process.env.NODE_ENV
+});
 
 // Initialize Firebase Admin unless using SIMPLE_AUTH
 if (!SIMPLE_AUTH) {
@@ -107,6 +115,9 @@ export async function registerRoutes(app: Express): Promise<Server> {
   app.post("/api/auth/complete-profile", verifyFirebaseToken, async (req: any, res) => {
     try {
       const { name, phone, role } = req.body;
+      if (!name || !role) {
+        return res.status(400).json({ error: "Missing required fields: name, role" });
+      }
       
       // Check if user already exists
       let user = await storage.getUserByFirebaseUid(req.firebaseUid);
@@ -148,8 +159,25 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
       res.json(user);
     } catch (error: any) {
-      res.status(500).json({ error: error.message });
+      // Improved diagnostics in development
+      // eslint-disable-next-line no-console
+      console.error("/api/auth/complete-profile error:", error);
+      const message = (() => {
+        if (!error) return 'Unknown error';
+        if (typeof error === 'string') return error;
+        if (error.message) return error.message;
+        try { return JSON.stringify(error); } catch { return String(error); }
+      })();
+      if (process.env.NODE_ENV !== 'production') {
+        return res.status(500).json({ error: message });
+      }
+      return res.status(500).json({ error: "Internal Server Error" });
     }
+  });
+
+  // Simple health endpoint
+  app.get('/api/health', (_req, res) => {
+    res.json({ ok: true, mode: SIMPLE_AUTH ? 'simple' : 'full' });
   });
 
   // Rider routes
@@ -203,12 +231,17 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  // Ride routes
+  // Ride routes - RIDERS ONLY can create rides
   app.post("/api/rides", verifyFirebaseToken, async (req: any, res) => {
     try {
       const user = await storage.getUserByFirebaseUid(req.firebaseUid);
       if (!user) {
         return res.status(404).json({ error: 'User not found' });
+      }
+
+      // Only riders can create ride requests
+      if (user.role !== 'rider') {
+        return res.status(403).json({ error: 'Only riders can request rides' });
       }
 
       const {
@@ -263,6 +296,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
+  // DRIVERS ONLY can accept rides
   app.post("/api/rides/:id/accept", verifyFirebaseToken, async (req: any, res) => {
     try {
       const user = await storage.getUserByFirebaseUid(req.firebaseUid);
@@ -270,13 +304,34 @@ export async function registerRoutes(app: Express): Promise<Server> {
         return res.status(404).json({ error: 'User not found' });
       }
 
-      const ride = await storage.updateRide(req.params.id, {
+      // Only drivers can accept rides
+      if (user.role !== 'driver') {
+        return res.status(403).json({ error: 'Only drivers can accept rides' });
+      }
+
+      const ride = await storage.getRide(req.params.id);
+      if (!ride) {
+        return res.status(404).json({ error: 'Ride not found' });
+      }
+
+      // Check if ride is still pending
+      if (ride.status !== 'pending') {
+        return res.status(400).json({ error: 'Ride is no longer available' });
+      }
+
+      // Check if driver is available
+      const driverProfile = await storage.getDriverProfile(user.id);
+      if (!driverProfile?.isAvailable) {
+        return res.status(400).json({ error: 'Driver is not available' });
+      }
+
+      const updatedRide = await storage.updateRide(req.params.id, {
         driverId: user.id,
         status: 'accepted',
         acceptedAt: new Date(),
       });
 
-      res.json(ride);
+      res.json(updatedRide);
     } catch (error: any) {
       res.status(500).json({ error: error.message });
     }
@@ -375,8 +430,25 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
+  // DRIVERS ONLY - get pending ride requests to accept
   app.get("/api/driver/pending-rides", verifyFirebaseToken, async (req: any, res) => {
     try {
+      const user = await storage.getUserByFirebaseUid(req.firebaseUid);
+      if (!user) {
+        return res.status(404).json({ error: 'User not found' });
+      }
+
+      // Only drivers can see pending rides
+      if (user.role !== 'driver') {
+        return res.status(403).json({ error: 'Only drivers can view pending rides' });
+      }
+
+      // Check if driver is available
+      const driverProfile = await storage.getDriverProfile(user.id);
+      if (!driverProfile?.isAvailable) {
+        return res.json([]); // No rides if driver is offline
+      }
+
       const rides = await storage.getPendingRides();
       res.json(rides);
     } catch (error: any) {
@@ -384,11 +456,17 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
+  // DRIVERS ONLY - toggle availability to receive ride requests
   app.put("/api/driver/availability", verifyFirebaseToken, async (req: any, res) => {
     try {
       const user = await storage.getUserByFirebaseUid(req.firebaseUid);
       if (!user) {
         return res.status(404).json({ error: 'User not found' });
+      }
+
+      // Only drivers can set availability
+      if (user.role !== 'driver') {
+        return res.status(403).json({ error: 'Only drivers can set availability' });
       }
 
       const { available } = req.body;

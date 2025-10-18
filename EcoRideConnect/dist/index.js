@@ -304,11 +304,13 @@ var init_db = __esm({
 });
 
 // server/index.ts
+import { config as config2 } from "dotenv";
 import express2 from "express";
 import session from "express-session";
 import MemoryStoreFactory from "memorystore";
 
 // server/routes.ts
+import { config } from "dotenv";
 import { createServer } from "http";
 import { WebSocketServer, WebSocket } from "ws";
 
@@ -321,6 +323,15 @@ async function getDb() {
   const { db: db2 } = await Promise.resolve().then(() => (init_db(), db_exports));
   return db2;
 }
+var StorageSelector = class {
+  static instance;
+  static getInstance() {
+    if (!this.instance) {
+      this.instance = SIMPLE_AUTH ? new MemoryStorage() : new DatabaseStorage();
+    }
+    return this.instance;
+  }
+};
 var DatabaseStorage = class {
   // User operations
   async getUser(id) {
@@ -707,12 +718,18 @@ var MemoryStorage = class {
     };
   }
 };
-var storage = SIMPLE_AUTH ? new MemoryStorage() : new DatabaseStorage();
+var storage = StorageSelector.getInstance();
 
 // server/routes.ts
 import Stripe from "stripe";
 import admin from "firebase-admin";
+config();
 var SIMPLE_AUTH2 = process.env.SIMPLE_AUTH === "true";
+console.log("\u{1F527} Environment check:", {
+  SIMPLE_AUTH: SIMPLE_AUTH2,
+  STRIPE_SECRET_KEY: process.env.STRIPE_SECRET_KEY ? "SET" : "NOT SET",
+  NODE_ENV: process.env.NODE_ENV
+});
 if (!SIMPLE_AUTH2) {
   if (!admin.apps.length) {
     admin.initializeApp();
@@ -876,6 +893,9 @@ async function registerRoutes(app2) {
       if (!user) {
         return res.status(404).json({ error: "User not found" });
       }
+      if (user.role !== "rider") {
+        return res.status(403).json({ error: "Only riders can request rides" });
+      }
       const {
         pickupLocation,
         pickupLat,
@@ -928,12 +948,26 @@ async function registerRoutes(app2) {
       if (!user) {
         return res.status(404).json({ error: "User not found" });
       }
-      const ride = await storage.updateRide(req.params.id, {
+      if (user.role !== "driver") {
+        return res.status(403).json({ error: "Only drivers can accept rides" });
+      }
+      const ride = await storage.getRide(req.params.id);
+      if (!ride) {
+        return res.status(404).json({ error: "Ride not found" });
+      }
+      if (ride.status !== "pending") {
+        return res.status(400).json({ error: "Ride is no longer available" });
+      }
+      const driverProfile = await storage.getDriverProfile(user.id);
+      if (!driverProfile?.isAvailable) {
+        return res.status(400).json({ error: "Driver is not available" });
+      }
+      const updatedRide = await storage.updateRide(req.params.id, {
         driverId: user.id,
         status: "accepted",
         acceptedAt: /* @__PURE__ */ new Date()
       });
-      res.json(ride);
+      res.json(updatedRide);
     } catch (error) {
       res.status(500).json({ error: error.message });
     }
@@ -1014,6 +1048,17 @@ async function registerRoutes(app2) {
   });
   app2.get("/api/driver/pending-rides", verifyFirebaseToken, async (req, res) => {
     try {
+      const user = await storage.getUserByFirebaseUid(req.firebaseUid);
+      if (!user) {
+        return res.status(404).json({ error: "User not found" });
+      }
+      if (user.role !== "driver") {
+        return res.status(403).json({ error: "Only drivers can view pending rides" });
+      }
+      const driverProfile = await storage.getDriverProfile(user.id);
+      if (!driverProfile?.isAvailable) {
+        return res.json([]);
+      }
       const rides2 = await storage.getPendingRides();
       res.json(rides2);
     } catch (error) {
@@ -1025,6 +1070,9 @@ async function registerRoutes(app2) {
       const user = await storage.getUserByFirebaseUid(req.firebaseUid);
       if (!user) {
         return res.status(404).json({ error: "User not found" });
+      }
+      if (user.role !== "driver") {
+        return res.status(403).json({ error: "Only drivers can set availability" });
       }
       const { available } = req.body;
       await storage.updateDriverProfile(user.id, {
@@ -1218,6 +1266,7 @@ function serveStatic(app2) {
 }
 
 // server/index.ts
+config2();
 var app = express2();
 app.use(express2.json());
 app.use(express2.urlencoded({ extended: false }));
