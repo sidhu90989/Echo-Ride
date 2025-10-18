@@ -24,8 +24,14 @@ export default function LoginPage() {
   const handleGoogleSignIn = async () => {
     try {
       setLoading(true);
-      await signInWithGoogle();
-      setShowRoleSelection(true);
+      const SIMPLE_AUTH = import.meta.env.VITE_SIMPLE_AUTH === 'true';
+      if (SIMPLE_AUTH) {
+        // In simple auth, we immediately show the role/profile form
+        setShowRoleSelection(true);
+      } else {
+        await signInWithGoogle();
+        setShowRoleSelection(true);
+      }
     } catch (error) {
       toast({
         title: "Sign In Failed",
@@ -49,13 +55,30 @@ export default function LoginPage() {
 
     try {
       setLoading(true);
-      const response = await apiRequest("POST", "/api/auth/complete-profile", {
-        name,
-        phone,
-        role: selectedRole,
-      });
-      
-      const userData = await response.json();
+      const SIMPLE_AUTH = import.meta.env.VITE_SIMPLE_AUTH === 'true';
+      let userData: any;
+      if (SIMPLE_AUTH) {
+        // Call simple login to set session
+        await apiRequest('POST', '/api/auth/login', {
+          email: `${name.split(' ').join('.').toLowerCase()}@example.com`,
+          name,
+          role: selectedRole,
+        });
+        // Complete profile still needs to create a user row
+        const res = await apiRequest("POST", "/api/auth/complete-profile", {
+          name,
+          phone,
+          role: selectedRole,
+        });
+        userData = await res.json();
+      } else {
+        const response = await apiRequest("POST", "/api/auth/complete-profile", {
+          name,
+          phone,
+          role: selectedRole,
+        });
+        userData = await response.json();
+      }
       setUser(userData);
       
       toast({
@@ -71,9 +94,10 @@ export default function LoginPage() {
         setLocation("/rider");
       }
     } catch (error) {
+      const message = error instanceof Error ? error.message : "Failed to complete profile. Please try again.";
       toast({
         title: "Error",
-        description: "Failed to complete profile. Please try again.",
+        description: message,
         variant: "destructive",
       });
     } finally {
@@ -114,7 +138,7 @@ export default function LoginPage() {
                 data-testid="button-google-signin"
               >
                 <SiGoogle className="h-5 w-5" />
-                Continue with Google
+                Continue
               </Button>
 
               <div className="relative">

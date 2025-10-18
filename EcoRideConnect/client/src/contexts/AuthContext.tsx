@@ -25,6 +25,33 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
+    const SIMPLE_AUTH = import.meta.env.VITE_SIMPLE_AUTH === 'true';
+    if (SIMPLE_AUTH) {
+      // On load, try verify using session (no Authorization header)
+      (async () => {
+        try {
+          const response = await fetch("/api/auth/verify", { credentials: 'include' });
+          if (response.ok) {
+            const userData = await response.json();
+            setUser(userData);
+          } else {
+            setUser(null);
+          }
+        } catch (e) {
+          setUser(null);
+        } finally {
+          setLoading(false);
+        }
+      })();
+      return;
+    }
+
+    if (!auth) {
+      // Firebase not configured; treat as logged out
+      setLoading(false);
+      return;
+    }
+
     const unsubscribe = onAuthStateChanged(auth, async (firebaseUser) => {
       setFirebaseUser(firebaseUser);
       
@@ -55,7 +82,15 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   }, []);
 
   const signInWithGoogle = async () => {
+    const SIMPLE_AUTH = import.meta.env.VITE_SIMPLE_AUTH === 'true';
     try {
+      if (SIMPLE_AUTH) {
+        // No-op here; LoginPage will call /api/auth/login directly
+        return;
+      }
+      if (!auth || !googleProvider) {
+        throw new Error("Firebase auth not initialized");
+      }
       await signInWithPopup(auth, googleProvider);
     } catch (error) {
       console.error("Error signing in with Google:", error);
@@ -64,7 +99,18 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   };
 
   const signOut = async () => {
+    const SIMPLE_AUTH = import.meta.env.VITE_SIMPLE_AUTH === 'true';
     try {
+      if (SIMPLE_AUTH) {
+        await fetch('/api/auth/logout', { method: 'POST', credentials: 'include' });
+        setUser(null);
+        return;
+      }
+      if (!auth) {
+        // Nothing to do
+        setUser(null);
+        return;
+      }
       await firebaseSignOut(auth);
       setUser(null);
     } catch (error) {

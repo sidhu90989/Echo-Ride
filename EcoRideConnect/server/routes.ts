@@ -1,3 +1,6 @@
+import { config } from "dotenv";
+config(); // Load environment variables
+
 import type { Express } from "express";
 import { createServer, type Server } from "http";
 import { WebSocketServer, WebSocket } from "ws";
@@ -5,29 +8,47 @@ import { storage } from "./storage";
 import Stripe from "stripe";
 import admin from "firebase-admin";
 
-// Initialize Firebase Admin
-if (!admin.apps.length) {
-  admin.initializeApp();
+// Flags
+const SIMPLE_AUTH = process.env.SIMPLE_AUTH === "true";
+console.log("🔧 Environment check:", {
+  SIMPLE_AUTH,
+  STRIPE_SECRET_KEY: process.env.STRIPE_SECRET_KEY ? "SET" : "NOT SET",
+  NODE_ENV: process.env.NODE_ENV
+});
+
+// Initialize Firebase Admin unless using SIMPLE_AUTH
+if (!SIMPLE_AUTH) {
+  if (!admin.apps.length) {
+    admin.initializeApp();
+  }
 }
 
-// Initialize Stripe
-if (!process.env.STRIPE_SECRET_KEY) {
-  throw new Error('Missing required Stripe secret: STRIPE_SECRET_KEY');
-}
-const stripe = new Stripe(process.env.STRIPE_SECRET_KEY, {
-  apiVersion: "2024-11-20.acacia",
-});
+// Initialize Stripe only if not SIMPLE_AUTH
+const stripe: Stripe | null = (() => {
+  if (SIMPLE_AUTH) return null;
+  if (!process.env.STRIPE_SECRET_KEY) {
+    throw new Error('Missing required Stripe secret: STRIPE_SECRET_KEY');
+  }
+  return new Stripe(process.env.STRIPE_SECRET_KEY);
+})();
 
 // Helper to verify Firebase token
 async function verifyFirebaseToken(req: any, res: any, next: any) {
-  const authHeader = req.headers.authorization;
-  
-  if (!authHeader?.startsWith('Bearer ')) {
+  if (SIMPLE_AUTH) {
+    // Use session-based check
+    if (req.session?.user) {
+      req.firebaseUid = req.session.user.firebaseUid;
+      req.email = req.session.user.email;
+      return next();
+    }
     return res.status(401).json({ error: 'Unauthorized' });
   }
 
+  const authHeader = req.headers.authorization;
+  if (!authHeader?.startsWith('Bearer ')) {
+    return res.status(401).json({ error: 'Unauthorized' });
+  }
   const token = authHeader.substring(7);
-  
   try {
     const decodedToken = await admin.auth().verifyIdToken(token);
     req.firebaseUid = decodedToken.uid;
@@ -38,6 +59,30 @@ async function verifyFirebaseToken(req: any, res: any, next: any) {
   }
 }
 
+// Simple auth routes for local testing
+function registerSimpleAuth(app: Express) {
+  app.post('/api/auth/login', (req: any, res) => {
+    const { email, name, role } = req.body || {};
+    if (!email || !name || !role) {
+      return res.status(400).json({ error: 'email, name, and role are required' });
+    }
+    // Stash user identity in session
+    req.session.user = {
+      firebaseUid: `local-${email}`,
+      email,
+      name,
+      role,
+    };
+    res.json({ success: true });
+  });
+
+  app.post('/api/auth/logout', (req: any, res) => {
+    req.session.destroy(() => {
+      res.json({ success: true });
+    });
+  });
+}
+
 // Helper to generate referral code
 function generateReferralCode(name: string): string {
   const randomPart = Math.random().toString(36).substring(2, 8).toUpperCase();
@@ -46,8 +91,12 @@ function generateReferralCode(name: string): string {
 }
 
 export async function registerRoutes(app: Express): Promise<Server> {
+  if (SIMPLE_AUTH) {
+    registerSimpleAuth(app);
+  }
   // Authentication routes
-  app.post("/api/auth/verify", verifyFirebaseToken, async (req: any, res) => {
+  // Support both GET and POST for verify for flexibility
+  const verifyHandler = async (req: any, res: any) => {
     try {
       const user = await storage.getUserByFirebaseUid(req.firebaseUid);
       
@@ -59,11 +108,16 @@ export async function registerRoutes(app: Express): Promise<Server> {
     } catch (error: any) {
       res.status(500).json({ error: error.message });
     }
-  });
+  };
+  app.get("/api/auth/verify", verifyFirebaseToken, verifyHandler);
+  app.post("/api/auth/verify", verifyFirebaseToken, verifyHandler);
 
   app.post("/api/auth/complete-profile", verifyFirebaseToken, async (req: any, res) => {
     try {
       const { name, phone, role } = req.body;
+      if (!name || !role) {
+        return res.status(400).json({ error: "Missing required fields: name, role" });
+      }
       
       // Check if user already exists
       let user = await storage.getUserByFirebaseUid(req.firebaseUid);
@@ -77,7 +131,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
       
       user = await storage.createUser({
         firebaseUid: req.firebaseUid,
-        email: req.email,
+        email: req.email || `${name.toLowerCase().split(' ').join('.')}@example.com`,
         name,
         phone,
         role,
@@ -105,8 +159,25 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
       res.json(user);
     } catch (error: any) {
-      res.status(500).json({ error: error.message });
+      // Improved diagnostics in development
+      // eslint-disable-next-line no-console
+      console.error("/api/auth/complete-profile error:", error);
+      const message = (() => {
+        if (!error) return 'Unknown error';
+        if (typeof error === 'string') return error;
+        if (error.message) return error.message;
+        try { return JSON.stringify(error); } catch { return String(error); }
+      })();
+      if (process.env.NODE_ENV !== 'production') {
+        return res.status(500).json({ error: message });
+      }
+      return res.status(500).json({ error: "Internal Server Error" });
     }
+  });
+
+  // Simple health endpoint
+  app.get('/api/health', (_req, res) => {
+    res.json({ ok: true, mode: SIMPLE_AUTH ? 'simple' : 'full' });
   });
 
   // Rider routes
@@ -160,12 +231,17 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  // Ride routes
+  // Ride routes - RIDERS ONLY can create rides
   app.post("/api/rides", verifyFirebaseToken, async (req: any, res) => {
     try {
       const user = await storage.getUserByFirebaseUid(req.firebaseUid);
       if (!user) {
         return res.status(404).json({ error: 'User not found' });
+      }
+
+      // Only riders can create ride requests
+      if (user.role !== 'rider') {
+        return res.status(403).json({ error: 'Only riders can request rides' });
       }
 
       const {
@@ -220,6 +296,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
+  // DRIVERS ONLY can accept rides
   app.post("/api/rides/:id/accept", verifyFirebaseToken, async (req: any, res) => {
     try {
       const user = await storage.getUserByFirebaseUid(req.firebaseUid);
@@ -227,13 +304,34 @@ export async function registerRoutes(app: Express): Promise<Server> {
         return res.status(404).json({ error: 'User not found' });
       }
 
-      const ride = await storage.updateRide(req.params.id, {
+      // Only drivers can accept rides
+      if (user.role !== 'driver') {
+        return res.status(403).json({ error: 'Only drivers can accept rides' });
+      }
+
+      const ride = await storage.getRide(req.params.id);
+      if (!ride) {
+        return res.status(404).json({ error: 'Ride not found' });
+      }
+
+      // Check if ride is still pending
+      if (ride.status !== 'pending') {
+        return res.status(400).json({ error: 'Ride is no longer available' });
+      }
+
+      // Check if driver is available
+      const driverProfile = await storage.getDriverProfile(user.id);
+      if (!driverProfile?.isAvailable) {
+        return res.status(400).json({ error: 'Driver is not available' });
+      }
+
+      const updatedRide = await storage.updateRide(req.params.id, {
         driverId: user.id,
         status: 'accepted',
         acceptedAt: new Date(),
       });
 
-      res.json(ride);
+      res.json(updatedRide);
     } catch (error: any) {
       res.status(500).json({ error: error.message });
     }
@@ -280,6 +378,43 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
+  // Start ride (driver only)
+  app.post("/api/rides/:id/start", verifyFirebaseToken, async (req: any, res) => {
+    try {
+      const user = await storage.getUserByFirebaseUid(req.firebaseUid);
+      if (!user) return res.status(404).json({ error: 'User not found' });
+
+      const ride = await storage.getRide(req.params.id);
+      if (!ride) return res.status(404).json({ error: 'Ride not found' });
+      if (ride.driverId && ride.driverId !== user.id) {
+        return res.status(403).json({ error: 'Not your ride' });
+      }
+
+      const updated = await storage.updateRide(req.params.id, {
+        driverId: ride.driverId || user.id,
+        status: 'in_progress',
+        startedAt: new Date(),
+      });
+      res.json(updated);
+    } catch (error: any) {
+      res.status(500).json({ error: error.message });
+    }
+  });
+
+  // SOS trigger (rider only - but keep simple)
+  app.post("/api/rides/:id/sos", verifyFirebaseToken, async (req: any, res) => {
+    try {
+      const ride = await storage.getRide(req.params.id);
+      if (!ride) return res.status(404).json({ error: 'Ride not found' });
+      // Here we could notify admins/drivers via WebSocket, SMS, etc.
+      // For now, just respond OK and mark a timestamp note if desired.
+      await storage.updateRide(req.params.id, { } as any);
+      res.json({ success: true });
+    } catch (error: any) {
+      res.status(500).json({ error: error.message });
+    }
+  });
+
   // Driver routes
   app.get("/api/driver/stats", verifyFirebaseToken, async (req: any, res) => {
     try {
@@ -295,8 +430,25 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
+  // DRIVERS ONLY - get pending ride requests to accept
   app.get("/api/driver/pending-rides", verifyFirebaseToken, async (req: any, res) => {
     try {
+      const user = await storage.getUserByFirebaseUid(req.firebaseUid);
+      if (!user) {
+        return res.status(404).json({ error: 'User not found' });
+      }
+
+      // Only drivers can see pending rides
+      if (user.role !== 'driver') {
+        return res.status(403).json({ error: 'Only drivers can view pending rides' });
+      }
+
+      // Check if driver is available
+      const driverProfile = await storage.getDriverProfile(user.id);
+      if (!driverProfile?.isAvailable) {
+        return res.json([]); // No rides if driver is offline
+      }
+
       const rides = await storage.getPendingRides();
       res.json(rides);
     } catch (error: any) {
@@ -304,11 +456,17 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
+  // DRIVERS ONLY - toggle availability to receive ride requests
   app.put("/api/driver/availability", verifyFirebaseToken, async (req: any, res) => {
     try {
       const user = await storage.getUserByFirebaseUid(req.firebaseUid);
       if (!user) {
         return res.status(404).json({ error: 'User not found' });
+      }
+
+      // Only drivers can set availability
+      if (user.role !== 'driver') {
+        return res.status(403).json({ error: 'Only drivers can set availability' });
       }
 
       const { available } = req.body;
@@ -355,6 +513,10 @@ export async function registerRoutes(app: Express): Promise<Server> {
   app.post("/api/create-payment-intent", verifyFirebaseToken, async (req: any, res) => {
     try {
       const { amount } = req.body;
+      if (!stripe) {
+        // Mock response for SIMPLE_AUTH/dev mode
+        return res.json({ clientSecret: `mock_${Math.round(amount * 100)}` });
+      }
       const paymentIntent = await stripe.paymentIntents.create({
         amount: Math.round(amount * 100),
         currency: "inr",
@@ -387,6 +549,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
                 rideId: data.rideId,
                 lat: data.lat,
                 lng: data.lng,
+                who: data.who || 'unknown',
+                at: Date.now(),
               }));
             }
           });

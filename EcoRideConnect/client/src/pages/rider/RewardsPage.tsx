@@ -6,6 +6,7 @@ import { LoadingSpinner } from "@/components/LoadingSpinner";
 import { ArrowLeft, Award, Share2, Copy } from "lucide-react";
 import { useLocation } from "wouter";
 import { useAuth } from "@/contexts/AuthContext";
+import type { Badge as BadgeType } from "@/types/api";
 import { useToast } from "@/hooks/use-toast";
 
 export default function RewardsPage() {
@@ -13,7 +14,7 @@ export default function RewardsPage() {
   const { user } = useAuth();
   const { toast } = useToast();
 
-  const { data: badges, isLoading } = useQuery({
+  const { data: badges, isLoading } = useQuery<BadgeType[]>({
     queryKey: ["/api/rider/badges"],
   });
 

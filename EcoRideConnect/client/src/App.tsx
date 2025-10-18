@@ -9,18 +9,42 @@ import { FullPageLoader } from "@/components/LoadingSpinner";
 
 // Pages
 import LoginPage from "@/pages/LoginPage";
+import HomePage from "@/pages/common/HomePage";
 import RiderDashboard from "@/pages/rider/RiderDashboard";
 import RideHistoryPage from "@/pages/rider/RideHistoryPage";
 import RewardsPage from "@/pages/rider/RewardsPage";
+import ConfirmRidePage from "@/pages/rider/ConfirmRidePage";
+import RideTrackingPage from "@/pages/rider/RideTrackingPage";
+import PaymentPage from "@/pages/rider/PaymentPage";
+import RatingPage from "@/pages/rider/RatingPage";
+import WalletPage from "@/pages/rider/WalletPage";
+import ProfilePage from "@/pages/rider/ProfilePage";
 import DriverDashboard from "@/pages/driver/DriverDashboard";
+import RideManagementPage from "@/pages/driver/RideManagementPage";
+import EarningsInsightsPage from "@/pages/driver/EarningsInsightsPage";
+import ProfileVerificationPage from "@/pages/driver/ProfileVerificationPage";
 import AdminDashboard from "@/pages/admin/AdminDashboard";
 import NotFoundPage from "@/pages/NotFoundPage";
+import RideTrackPage from "@/pages/rider/RideTrackPage";
+import DriveRidePage from "@/pages/driver/DriveRidePage";
+import RideDetailsPage from "@/pages/rider/RideDetailsPage";
+import WalletOffersPage from "@/pages/rider/WalletOffersPage";
+import ProfileSettingsPage from "@/pages/rider/ProfileSettingsPage";
+import EarningsPage from "@/pages/driver/EarningsPage";
+import UsersDriversPage from "@/pages/admin/UsersDriversPage";
+import PaymentsCommissionPage from "@/pages/admin/PaymentsCommissionPage";
+import OffersNotificationsPage from "@/pages/admin/OffersNotificationsPage";
+import AnalyticsPage from "@/pages/admin/AnalyticsPage";
+import SplashScreen from "@/pages/common/SplashScreen";
+import OnboardingPage from "@/pages/common/OnboardingPage";
+import ChargingStationsPage from "@/pages/common/ChargingStationsPage";
+import LeaderboardPage from "@/pages/common/LeaderboardPage";
 
 function ProtectedRoute({ 
   component: Component, 
   allowedRoles 
 }: { 
-  component: React.ComponentType; 
+  component: React.ComponentType<any>; 
   allowedRoles?: string[] 
 }) {
   const { user, loading } = useAuth();
@@ -30,7 +54,7 @@ function ProtectedRoute({
   }
 
   if (!user) {
-    return <Redirect to="/" />;
+    return <Redirect to="/login" />;
   }
 
   if (allowedRoles && !allowedRoles.includes(user.role)) {
@@ -49,13 +73,10 @@ function Router() {
 
   return (
     <Switch>
-      {/* Public Route */}
-      <Route path="/">
-        {user ? (
-          <Redirect to={`/${user.role}`} />
-        ) : (
-          <LoginPage />
-        )}
+      {/* Public Routes */}
+      <Route path="/" component={HomePage} />
+      <Route path="/login">
+        {user ? <Redirect to={`/${user.role}`} /> : <LoginPage />}
       </Route>
 
       {/* Rider Routes */}
@@ -68,16 +89,79 @@ function Router() {
       <Route path="/rider/rewards">
         <ProtectedRoute component={RewardsPage} allowedRoles={["rider"]} />
       </Route>
+      <Route path="/rider/confirm">
+        <ProtectedRoute component={ConfirmRidePage} allowedRoles={["rider"]} />
+      </Route>
+      <Route path="/rider/ride/:id/tracking">
+        <ProtectedRoute component={RideTrackingPage} allowedRoles={["rider"]} />
+      </Route>
+      <Route path="/rider/payment">
+        <ProtectedRoute component={PaymentPage} allowedRoles={["rider"]} />
+      </Route>
+      <Route path="/rider/rate">
+        <ProtectedRoute component={RatingPage} allowedRoles={["rider"]} />
+      </Route>
+      <Route path="/rider/wallet">
+        <ProtectedRoute component={WalletPage} allowedRoles={["rider"]} />
+      </Route>
+      <Route path="/rider/profile">
+        <ProtectedRoute component={ProfilePage} allowedRoles={["rider"]} />
+      </Route>
+      <Route path="/rider/ride/:id">
+        <ProtectedRoute component={RideTrackPage} allowedRoles={["rider"]} />
+      </Route>
+      <Route path="/rider/ride-details/:id">
+        <ProtectedRoute component={RideDetailsPage} allowedRoles={["rider"]} />
+      </Route>
+      <Route path="/rider/wallet-offers">
+        <ProtectedRoute component={WalletOffersPage} allowedRoles={["rider"]} />
+      </Route>
+      <Route path="/rider/profile">
+        <ProtectedRoute component={ProfileSettingsPage} allowedRoles={["rider"]} />
+      </Route>
 
       {/* Driver Routes */}
       <Route path="/driver">
         <ProtectedRoute component={DriverDashboard} allowedRoles={["driver"]} />
+      </Route>
+      <Route path="/driver/ride-management">
+        <ProtectedRoute component={RideManagementPage} allowedRoles={["driver"]} />
+      </Route>
+      <Route path="/driver/ride/:id">
+        <ProtectedRoute component={DriveRidePage} allowedRoles={["driver"]} />
+      </Route>
+      <Route path="/driver/earnings">
+        <ProtectedRoute component={EarningsInsightsPage} allowedRoles={["driver"]} />
+      </Route>
+      <Route path="/driver/earnings-old">
+        <ProtectedRoute component={EarningsPage} allowedRoles={["driver"]} />
+      </Route>
+      <Route path="/driver/profile">
+        <ProtectedRoute component={ProfileVerificationPage} allowedRoles={["driver"]} />
       </Route>
 
       {/* Admin Routes */}
       <Route path="/admin">
         <ProtectedRoute component={AdminDashboard} allowedRoles={["admin"]} />
       </Route>
+      <Route path="/admin/users">
+        <ProtectedRoute component={UsersDriversPage} allowedRoles={["admin"]} />
+      </Route>
+      <Route path="/admin/payments">
+        <ProtectedRoute component={PaymentsCommissionPage} allowedRoles={["admin"]} />
+      </Route>
+      <Route path="/admin/offers">
+        <ProtectedRoute component={OffersNotificationsPage} allowedRoles={["admin"]} />
+      </Route>
+      <Route path="/admin/analytics">
+        <ProtectedRoute component={AnalyticsPage} allowedRoles={["admin"]} />
+      </Route>
+
+      {/* Common */}
+      <Route path="/splash" component={SplashScreen} />
+      <Route path="/onboarding" component={OnboardingPage} />
+      <Route path="/charging-stations" component={ChargingStationsPage} />
+      <Route path="/leaderboard" component={LeaderboardPage} />
 
       {/* 404 */}
       <Route component={NotFoundPage} />
