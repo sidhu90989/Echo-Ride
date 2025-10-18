@@ -173,12 +173,48 @@ export default function RiderDashboard() {
                 className="w-full justify-start gap-2"
                 onClick={() => {
                   setShowMenu(false);
-                  setLocation("/rider/impact");
+                  setLocation("/rider/wallet-offers");
                 }}
-                data-testid="link-eco-impact"
+                data-testid="link-wallet-offers"
+              >
+                <Gift className="h-5 w-5" />
+                Wallet & Offers
+              </Button>
+              <Button
+                variant="ghost"
+                className="w-full justify-start gap-2"
+                onClick={() => {
+                  setShowMenu(false);
+                  setLocation("/rider/profile");
+                }}
+                data-testid="link-profile-settings"
+              >
+                <User className="h-5 w-5" />
+                Profile Settings
+              </Button>
+              <Button
+                variant="ghost"
+                className="w-full justify-start gap-2"
+                onClick={() => {
+                  setShowMenu(false);
+                  setLocation("/charging-stations");
+                }}
+                data-testid="link-charging-stations"
+              >
+                <MapPin className="h-5 w-5" />
+                Charging Stations
+              </Button>
+              <Button
+                variant="ghost"
+                className="w-full justify-start gap-2"
+                onClick={() => {
+                  setShowMenu(false);
+                  setLocation("/leaderboard");
+                }}
+                data-testid="link-leaderboard"
               >
                 <TrendingUp className="h-5 w-5" />
-                Eco Impact
+                Leaderboard
               </Button>
             </nav>
             <div className="pt-6 border-t">

@@ -121,12 +121,12 @@ export default function DriverDashboard() {
                 className="w-full justify-start gap-2"
                 onClick={() => {
                   setShowMenu(false);
-                  setLocation("/driver/history");
+                  setLocation("/driver");
                 }}
-                data-testid="link-ride-history"
+                data-testid="link-dashboard"
               >
-                <History className="h-5 w-5" />
-                Ride History
+                <TrendingUp className="h-5 w-5" />
+                Dashboard
               </Button>
               <Button
                 variant="ghost"
@@ -145,24 +145,24 @@ export default function DriverDashboard() {
                 className="w-full justify-start gap-2"
                 onClick={() => {
                   setShowMenu(false);
-                  setLocation("/driver/kyc");
+                  setLocation("/driver/profile");
                 }}
-                data-testid="link-kyc"
+                data-testid="link-profile-verification"
               >
                 <FileText className="h-5 w-5" />
-                KYC Documents
+                Profile & KYC
               </Button>
               <Button
                 variant="ghost"
                 className="w-full justify-start gap-2"
                 onClick={() => {
                   setShowMenu(false);
-                  setLocation("/driver/settings");
+                  setLocation("/leaderboard");
                 }}
-                data-testid="link-settings"
+                data-testid="link-leaderboard"
               >
-                <Settings className="h-5 w-5" />
-                Settings
+                <Star className="h-5 w-5" />
+                Leaderboard
               </Button>
             </nav>
             <div className="pt-6 border-t">

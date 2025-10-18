@@ -9,6 +9,7 @@ import { FullPageLoader } from "@/components/LoadingSpinner";
 
 // Pages
 import LoginPage from "@/pages/LoginPage";
+import HomePage from "@/pages/common/HomePage";
 import RiderDashboard from "@/pages/rider/RiderDashboard";
 import RideHistoryPage from "@/pages/rider/RideHistoryPage";
 import RewardsPage from "@/pages/rider/RewardsPage";
@@ -48,7 +49,7 @@ function ProtectedRoute({
   }
 
   if (!user) {
-    return <Redirect to="/" />;
+    return <Redirect to="/login" />;
   }
 
   if (allowedRoles && !allowedRoles.includes(user.role)) {
@@ -67,13 +68,10 @@ function Router() {
 
   return (
     <Switch>
-      {/* Public Route */}
-      <Route path="/">
-        {user ? (
-          <Redirect to={`/${user.role}`} />
-        ) : (
-          <LoginPage />
-        )}
+      {/* Public Routes */}
+      <Route path="/" component={HomePage} />
+      <Route path="/login">
+        {user ? <Redirect to={`/${user.role}`} /> : <LoginPage />}
       </Route>
 
       {/* Rider Routes */}

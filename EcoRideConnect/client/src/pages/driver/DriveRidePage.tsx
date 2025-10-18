@@ -108,6 +108,7 @@ export default function DriveRidePage() {
           rider={riderLoc}
           driver={driverLoc}
           height={260}
+          autoFit
         />
       </Card>
       <Card className="p-4">
