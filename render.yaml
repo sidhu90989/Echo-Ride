@@ -1,0 +1,60 @@
+# Render Blueprint for EcoRideConnect
+# Docs: https://render.com/docs/blueprint-spec
+
+services:
+  - type: web
+    name: ecoride-connect
+    env: node
+    plan: free
+    autoDeploy: true
+    rootDir: EcoRideConnect
+    buildCommand: |
+      npm ci
+      # Ensure client builds with correct base path on Render (serves from '/')
+      VITE_BASE_PATH=/ npm run build
+    startCommand: npm start
+    # Health check hits the API health endpoint (server answers when ready)
+    healthCheckPath: /api/health
+    healthCheckTimeout: 180
+    # Environment
+    envVars:
+      - key: NODE_ENV
+        value: production
+      - key: PORT
+        value: 10000
+      - key: SESSION_SECRET
+        generateValue: true
+      - key: VITE_BASE_PATH
+        value: /
+      # Auth/dev toggles
+      - key: VITE_SIMPLE_AUTH
+        value: 'true'
+      - key: ALLOW_SIMPLE_AUTH_ROUTES
+        value: 'true'
+      - key: COOKIE_SECURE
+        value: 'true'
+      # Database (set this in Render Dashboard)
+      - key: DATABASE_URL
+        sync: false
+      # Optional APIs: set only if used
+      - key: VITE_GOOGLE_MAPS_API_KEY
+        sync: false
+      - key: VITE_FIREBASE_API_KEY
+        sync: false
+      - key: VITE_FIREBASE_PROJECT_ID
+        sync: false
+      - key: VITE_FIREBASE_APP_ID
+        sync: false
+      - key: STRIPE_SECRET_KEY
+        sync: false
+      - key: VITE_STRIPE_PUBLISHABLE_KEY
+        sync: false
+      - key: NAME_API_BASE_URL_PROD
+        sync: false
+      - key: NAME_API_TOKEN_PROD
+        sync: false
+    # Scaling
+    disk:
+      name: cache
+      mountPath: /opt/render/project/.cache
+      sizeGB: 1
