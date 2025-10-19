@@ -66,6 +66,43 @@ jobs:
         run: |
           npx drizzle-kit push
 
+      # Optional: Push ephemeral DATABASE_URL to Vercel Preview env for this PR branch
+      - name: Install jq (for JSON parsing)
+        if: ${{ secrets.VERCEL_TOKEN && vars.VERCEL_PROJECT_ID }}
+        run: sudo apt-get update && sudo apt-get install -y jq
+
+      - name: Upsert Vercel env var DATABASE_URL for this PR branch (Preview)
+        if: ${{ secrets.VERCEL_TOKEN && vars.VERCEL_PROJECT_ID }}
+        env:
+          VERCEL_TOKEN: ${{ secrets.VERCEL_TOKEN }}
+          VERCEL_PROJECT_ID: ${{ vars.VERCEL_PROJECT_ID }}
+          DB_URL: ${{ steps.create_neon_branch.outputs.db_url_with_pooler }}
+          GIT_BRANCH: preview/pr-${{ github.event.number }}-${{ needs.setup.outputs.branch }}
+        run: |
+          set -euo pipefail
+          # Delete existing DATABASE_URL env var bound to this gitBranch (if any)
+          list=$(curl -fsSL -H "Authorization: Bearer $VERCEL_TOKEN" \
+            "https://api.vercel.com/v9/projects/$VERCEL_PROJECT_ID/env?key=DATABASE_URL")
+          ids=$(echo "$list" | jq -r '.envs[] | select(.gitBranch == env.GIT_BRANCH) | .id') || true
+          if [ -n "${ids:-}" ]; then
+            for id in $ids; do
+              curl -fsS -X DELETE -H "Authorization: Bearer $VERCEL_TOKEN" \
+                "https://api.vercel.com/v9/projects/$VERCEL_PROJECT_ID/env/$id" || true
+            done
+          fi
+          # Create new env var scoped to this PR branch in Preview target
+          curl -fsS -X POST \
+            -H "Authorization: Bearer $VERCEL_TOKEN" \
+            -H "Content-Type: application/json" \
+            -d '{
+              "type":"encrypted",
+              "key":"DATABASE_URL",
+              "value":"'"$DB_URL"'",
+              "target":["preview"],
+              "gitBranch":"'"$GIT_BRANCH"'"
+            }' \
+            "https://api.vercel.com/v9/projects/$VERCEL_PROJECT_ID/env"
+
       # Optional: Post schema diff as a PR comment (requires permissions)
       # - name: Post Schema Diff Comment to PR
       #   uses: neondatabase/schema-diff-action@v1
@@ -86,3 +123,22 @@ jobs:
           project_id: ${{ vars.NEON_PROJECT_ID }}
           branch: preview/pr-${{ github.event.number }}-${{ needs.setup.outputs.branch }}
           api_key: ${{ secrets.NEON_API_KEY }}
+
+      # Optional: Clean up Vercel env var for this PR branch
+      - name: Remove Vercel env var for this PR branch
+        if: ${{ secrets.VERCEL_TOKEN && vars.VERCEL_PROJECT_ID }}
+        env:
+          VERCEL_TOKEN: ${{ secrets.VERCEL_TOKEN }}
+          VERCEL_PROJECT_ID: ${{ vars.VERCEL_PROJECT_ID }}
+          GIT_BRANCH: preview/pr-${{ github.event.number }}-${{ needs.setup.outputs.branch }}
+        run: |
+          set -euo pipefail
+          list=$(curl -fsSL -H "Authorization: Bearer $VERCEL_TOKEN" \
+            "https://api.vercel.com/v9/projects/$VERCEL_PROJECT_ID/env?key=DATABASE_URL")
+          ids=$(echo "$list" | jq -r '.envs[] | select(.gitBranch == env.GIT_BRANCH) | .id') || true
+          if [ -n "${ids:-}" ]; then
+            for id in $ids; do
+              curl -fsS -X DELETE -H "Authorization: Bearer $VERCEL_TOKEN" \
+                "https://api.vercel.com/v9/projects/$VERCEL_PROJECT_ID/env/$id" || true
+            done
+          fi
