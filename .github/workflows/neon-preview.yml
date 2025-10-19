@@ -66,6 +66,41 @@ jobs:
         run: |
           npx drizzle-kit push
 
+      - name: Prepare PR comment body
+        id: pr_comment
+        env:
+          DB_URL: ${{ steps.create_neon_branch.outputs.db_url_with_pooler }}
+          BRANCH_NAME: preview/pr-${{ github.event.number }}-${{ needs.setup.outputs.branch }}
+          PROJECT_ID: ${{ vars.NEON_PROJECT_ID }}
+          ALLOW_POST_DB_URL: ${{ vars.ALLOW_POST_DB_URL }}
+        run: |
+          set -euo pipefail
+          MASKED_URL=$(echo "$DB_URL" | sed -E 's#(://[^:]+:)[^@]+@#\1****@#')
+          if [ "${ALLOW_POST_DB_URL:-}" = "true" ]; then
+            DISPLAY_URL="$DB_URL"
+            NOTE="(Full URL shown as ALLOW_POST_DB_URL=true)"
+          else
+            DISPLAY_URL="$MASKED_URL"
+            NOTE="(Password masked. Set repository variable ALLOW_POST_DB_URL=true to show full URL.)"
+          fi
+          echo "body<<'EOF'" >> "$GITHUB_OUTPUT"
+          echo "🚀 Neon Preview DB ready for this PR" >> "$GITHUB_OUTPUT"
+          echo >> "$GITHUB_OUTPUT"
+          echo "- Branch: $BRANCH_NAME" >> "$GITHUB_OUTPUT"
+          echo "- Project: $PROJECT_ID" >> "$GITHUB_OUTPUT"
+          echo "- DATABASE_URL (pooled):" >> "$GITHUB_OUTPUT"
+          echo "\n\`\n$DISPLAY_URL\n\`\n" >> "$GITHUB_OUTPUT"
+          echo "$NOTE" >> "$GITHUB_OUTPUT"
+          echo >> "$GITHUB_OUTPUT"
+          echo "Tip: migrations applied via drizzle-kit push ✅" >> "$GITHUB_OUTPUT"
+          echo 'EOF' >> "$GITHUB_OUTPUT"
+
+      - name: Comment preview DB on PR
+        uses: peter-evans/create-or-update-comment@v4
+        with:
+          issue-number: ${{ github.event.number }}
+          body: ${{ steps.pr_comment.outputs.body }}
+
       # Optional: Push ephemeral DATABASE_URL to Vercel Preview env for this PR branch
       - name: Install jq (for JSON parsing)
         if: ${{ secrets.VERCEL_TOKEN && vars.VERCEL_PROJECT_ID }}
