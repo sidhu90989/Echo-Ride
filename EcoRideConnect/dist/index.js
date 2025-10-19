@@ -284,50 +284,64 @@ __export(db_exports, {
   db: () => db,
   pool: () => pool
 });
+import { config } from "dotenv";
 import { Pool, neonConfig } from "@neondatabase/serverless";
 import { drizzle } from "drizzle-orm/neon-serverless";
 import ws from "ws";
-var pool, db;
+var SIMPLE_AUTH, pool, db;
 var init_db = __esm({
   "server/db.ts"() {
     "use strict";
     init_schema();
-    neonConfig.webSocketConstructor = ws;
-    if (!process.env.DATABASE_URL) {
-      throw new Error(
-        "DATABASE_URL must be set. Did you forget to provision a database?"
-      );
+    config();
+    SIMPLE_AUTH = process.env.SIMPLE_AUTH === "true";
+    console.log(`[db] module init. SIMPLE_AUTH=${process.env.SIMPLE_AUTH} DATABASE_URL=${process.env.DATABASE_URL ? "SET" : "MISSING"}`);
+    if (!SIMPLE_AUTH) {
+      if (!process.env.DATABASE_URL) {
+        throw new Error("DATABASE_URL must be set. Did you forget to provision a database?");
+      }
+      neonConfig.webSocketConstructor = ws;
+      pool = new Pool({ connectionString: process.env.DATABASE_URL });
+      db = drizzle({ client: pool, schema: schema_exports });
+    } else {
+      console.log("[db] SIMPLE_AUTH=true -> skipping Neon/drizzle initialization");
     }
-    pool = new Pool({ connectionString: process.env.DATABASE_URL });
-    db = drizzle({ client: pool, schema: schema_exports });
   }
 });
 
 // server/index.ts
-import { config as config2 } from "dotenv";
+import { config as config4 } from "dotenv";
 import express2 from "express";
 import session from "express-session";
 import MemoryStoreFactory from "memorystore";
 
 // server/routes.ts
-import { config } from "dotenv";
+import { config as config3 } from "dotenv";
 import { createServer } from "http";
 import { WebSocketServer, WebSocket } from "ws";
 
 // server/storage.ts
 init_schema();
+import { config as config2 } from "dotenv";
 import { eq, and, or, desc, sql as sql2 } from "drizzle-orm";
 import { customAlphabet } from "nanoid";
-var SIMPLE_AUTH = process.env.SIMPLE_AUTH === "true";
+config2();
+console.log(`[storage] module initialized. SIMPLE_AUTH=${process.env.SIMPLE_AUTH} DATABASE_URL=${process.env.DATABASE_URL ? "SET" : "MISSING"}`);
 async function getDb() {
   const { db: db2 } = await Promise.resolve().then(() => (init_db(), db_exports));
+  if (!db2) {
+    throw new Error("[db] Not initialized. Attempted to use database storage while SIMPLE_AUTH=true");
+  }
   return db2;
 }
 var StorageSelector = class {
   static instance;
   static getInstance() {
     if (!this.instance) {
-      this.instance = SIMPLE_AUTH ? new MemoryStorage() : new DatabaseStorage();
+      const simple = process.env.SIMPLE_AUTH === "true";
+      console.log(`[storage] selecting storage. SIMPLE_AUTH=${process.env.SIMPLE_AUTH} -> ${simple ? "memory" : "database"}`);
+      this.instance = simple ? new MemoryStorage() : new DatabaseStorage();
+      console.log(`[storage] using ${simple ? "memory" : "database"} storage`);
     }
     return this.instance;
   }
@@ -478,10 +492,9 @@ var DatabaseStorage = class {
       eq(rides.status, "completed"),
       sql2`DATE(${rides.completedAt}) = CURRENT_DATE`
     ));
-    const todayEarnings = todayRides.reduce(
-      (sum, ride) => sum + Number(ride.actualFare || 0),
-      0
-    );
+    const todayEarnings = todayRides.reduce((sum, ride) => {
+      return sum + Number(ride.actualFare || 0);
+    }, 0);
     return {
       totalRides: profile?.totalRides || 0,
       totalEarnings: profile?.totalEarnings || "0",
@@ -495,17 +508,15 @@ var DatabaseStorage = class {
     const [driverCount] = await db2.select({ count: sql2`count(*)` }).from(driverProfiles).where(eq(driverProfiles.isAvailable, true));
     const allRides = await db2.select().from(rides);
     const completedRides = allRides.filter((r) => r.status === "completed");
-    const totalRevenue = completedRides.reduce(
-      (sum, ride) => sum + Number(ride.actualFare || 0),
-      0
-    );
-    const totalCO2 = completedRides.reduce(
-      (sum, ride) => sum + Number(ride.co2Saved || 0),
-      0
-    );
-    const todayRides = allRides.filter(
-      (r) => r.requestedAt && new Date(r.requestedAt).toDateString() === (/* @__PURE__ */ new Date()).toDateString()
-    );
+    const totalRevenue = completedRides.reduce((sum, ride) => {
+      return sum + Number(ride.actualFare || 0);
+    }, 0);
+    const totalCO2 = completedRides.reduce((sum, ride) => {
+      return sum + Number(ride.co2Saved || 0);
+    }, 0);
+    const todayRides = allRides.filter((r) => {
+      return !!(r.requestedAt && new Date(r.requestedAt).toDateString() === (/* @__PURE__ */ new Date()).toDateString());
+    });
     const vehicleStats = {
       e_rickshaw: allRides.filter((r) => r.vehicleType === "e_rickshaw").length,
       e_scooter: allRides.filter((r) => r.vehicleType === "e_scooter").length,
@@ -723,7 +734,7 @@ var storage = StorageSelector.getInstance();
 // server/routes.ts
 import Stripe from "stripe";
 import admin from "firebase-admin";
-config();
+config3();
 var SIMPLE_AUTH2 = process.env.SIMPLE_AUTH === "true";
 console.log("\u{1F527} Environment check:", {
   SIMPLE_AUTH: SIMPLE_AUTH2,
@@ -810,6 +821,9 @@ async function registerRoutes(app2) {
   app2.post("/api/auth/complete-profile", verifyFirebaseToken, async (req, res) => {
     try {
       const { name, phone, role } = req.body;
+      if (!name || !role) {
+        return res.status(400).json({ error: "Missing required fields: name, role" });
+      }
       let user = await storage.getUserByFirebaseUid(req.firebaseUid);
       if (user) {
         return res.json(user);
@@ -842,8 +856,25 @@ async function registerRoutes(app2) {
       }
       res.json(user);
     } catch (error) {
-      res.status(500).json({ error: error.message });
+      console.error("/api/auth/complete-profile error:", error);
+      const message = (() => {
+        if (!error) return "Unknown error";
+        if (typeof error === "string") return error;
+        if (error.message) return error.message;
+        try {
+          return JSON.stringify(error);
+        } catch {
+          return String(error);
+        }
+      })();
+      if (process.env.NODE_ENV !== "production") {
+        return res.status(500).json({ error: message });
+      }
+      return res.status(500).json({ error: "Internal Server Error" });
     }
+  });
+  app2.get("/api/health", (_req, res) => {
+    res.json({ ok: true, mode: SIMPLE_AUTH2 ? "simple" : "full" });
   });
   app2.get("/api/rider/stats", verifyFirebaseToken, async (req, res) => {
     try {
@@ -1266,11 +1297,16 @@ function serveStatic(app2) {
 }
 
 // server/index.ts
-config2();
+config4();
 var app = express2();
+app.set("trust proxy", 1);
 app.use(express2.json());
 app.use(express2.urlencoded({ extended: false }));
 var MemoryStore = MemoryStoreFactory(session);
+var isCodespaces = !!process.env.CODESPACES;
+var forceSecure = process.env.COOKIE_SECURE === "true";
+var useSecureCookies = isCodespaces || forceSecure;
+var sameSitePolicy = useSecureCookies ? "none" : "lax";
 app.use(
   session({
     secret: process.env.SESSION_SECRET || "dev-session-secret",
@@ -1278,11 +1314,13 @@ app.use(
     saveUninitialized: false,
     store: new MemoryStore({ checkPeriod: 1e3 * 60 * 60 }),
     // prune expired every hour
+    proxy: true,
+    // honor X-Forwarded-* headers for secure cookies
     cookie: {
-      secure: false,
-      // set true when behind HTTPS/proxy with trust proxy configured
+      secure: useSecureCookies,
+      // required when served over HTTPS via proxy
       httpOnly: true,
-      sameSite: "lax",
+      sameSite: sameSitePolicy,
       maxAge: 1e3 * 60 * 60 * 8
       // 8 hours
     }

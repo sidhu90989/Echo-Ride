@@ -31,6 +31,7 @@ export default defineConfig({
     outDir: path.resolve(import.meta.dirname, "dist/public"),
     emptyOutDir: true,
   },
+  base: process.env.NODE_ENV === "production" ? "/Echo-Ride/" : "/",
   server: {
     fs: {
       strict: true,
