@@ -9,10 +9,10 @@ services:
     autoDeploy: true
     rootDir: EcoRideConnect
     buildCommand: |
-      npm ci
+      npm ci --include=dev
       # Ensure client builds with correct base path on Render (serves from '/')
       VITE_BASE_PATH=/ npm run build
-    startCommand: npm start
+    startCommand: npm run start:migrate
     # Health check hits the API health endpoint (server answers when ready)
     healthCheckPath: /api/health
     # Environment
@@ -30,4 +30,4 @@ services:
         value: 'true'
       - key: COOKIE_SECURE
         value: 'true'
-    # Note: Set DATABASE_URL and optional API keys in the Render Dashboard after creation.
+  # Note: Set DATABASE_URL and optional API keys in the Render Dashboard after creation.
