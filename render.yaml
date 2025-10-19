@@ -1,0 +1,33 @@
+# Render Blueprint for EcoRideConnect
+# Docs: https://render.com/docs/blueprint-spec
+
+services:
+  - type: web
+    name: ecoride-connect
+    env: node
+    plan: free
+    autoDeploy: true
+    rootDir: EcoRideConnect
+    buildCommand: |
+      npm ci --include=dev
+      # Ensure client builds with correct base path on Render (serves from '/')
+      VITE_BASE_PATH=/ npm run build
+    startCommand: npm run start:migrate
+    # Health check hits the API health endpoint (server answers when ready)
+    healthCheckPath: /api/health
+    # Environment
+    envVars:
+      - key: NODE_ENV
+        value: production
+      - key: SESSION_SECRET
+        generateValue: true
+      - key: VITE_BASE_PATH
+        value: /
+      # Auth/dev toggles
+      - key: VITE_SIMPLE_AUTH
+        value: 'true'
+      - key: ALLOW_SIMPLE_AUTH_ROUTES
+        value: 'true'
+      - key: COOKIE_SECURE
+        value: 'true'
+  # Note: Set DATABASE_URL and optional API keys in the Render Dashboard after creation.

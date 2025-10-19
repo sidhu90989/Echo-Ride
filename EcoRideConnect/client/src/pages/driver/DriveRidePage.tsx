@@ -1,3 +1,4 @@
+import { withApiBase } from "@/lib/apiBase";
 import { useEffect, useState } from "react";
 import { useParams, useLocation } from "wouter";
 import { Button } from "@/components/ui/button";
@@ -35,7 +36,7 @@ export default function DriveRidePage() {
   const [riderLoc, setRiderLoc] = useState<LatLng | null>(null);
 
   const loadRide = async () => {
-    const res = await fetch(`/api/rides/${rideId}`, { credentials: "include" });
+  const res = await fetch(withApiBase(`/api/rides/${rideId}`), { credentials: "include" });
     if (res.ok) setRide(await res.json());
   };
 

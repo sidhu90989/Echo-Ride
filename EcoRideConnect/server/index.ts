@@ -2,6 +2,7 @@ import { config } from "dotenv";
 config(); // Load environment variables from .env file
 
 import express, { type Request, Response, NextFunction } from "express";
+import cors from "cors";
 import session from "express-session";
 import MemoryStoreFactory from "memorystore";
 import { registerRoutes } from "./routes";
@@ -12,6 +13,16 @@ const app = express();
 app.set('trust proxy', 1);
 app.use(express.json());
 app.use(express.urlencoded({ extended: false }));
+
+// CORS for separate frontend origin (e.g., Vercel) while sending cookies
+if (process.env.FRONTEND_ORIGIN) {
+  app.use(
+    cors({
+      origin: process.env.FRONTEND_ORIGIN.split(',').map((s) => s.trim()),
+      credentials: true,
+    }),
+  );
+}
 
 // Session setup for SIMPLE_AUTH/local dev flows
 const MemoryStore = MemoryStoreFactory(session);

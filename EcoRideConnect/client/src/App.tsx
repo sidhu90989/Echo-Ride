@@ -7,6 +7,11 @@ import { AuthProvider, useAuth } from "@/contexts/AuthContext";
 import { ThemeProvider } from "@/contexts/ThemeContext";
 import { FullPageLoader } from "@/components/LoadingSpinner";
 
+// Import API validator for development
+if (import.meta.env.DEV) {
+  import("./lib/api-validator");
+}
+
 // Pages
 import LoginPage from "@/pages/LoginPage";
 import HomePage from "@/pages/common/HomePage";

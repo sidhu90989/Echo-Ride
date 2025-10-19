@@ -1,0 +1,179 @@
+name: Create/Delete Neon Branch for Pull Request
+
+on:
+  pull_request:
+    types: [opened, reopened, synchronize, closed]
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+
+jobs:
+  setup:
+    name: Setup
+    outputs:
+      branch: ${{ steps.branch_name.outputs.current_branch }}
+    runs-on: ubuntu-latest
+    steps:
+      - name: Get branch name
+        id: branch_name
+        uses: tj-actions/branch-names@v8
+
+  create_neon_branch:
+    name: Create Neon Branch
+    needs: setup
+    if: |
+      github.event_name == 'pull_request' && (
+      github.event.action == 'synchronize' ||
+      github.event.action == 'opened' ||
+      github.event.action == 'reopened')
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      pull-requests: write
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Get branch expiration date (2 weeks)
+        id: get_expiration_date
+        run: echo "EXPIRES_AT=$(date -u --date '+14 days' +'%Y-%m-%dT%H:%M:%SZ')" >> "$GITHUB_ENV"
+
+      - name: Create Neon Branch
+        id: create_neon_branch
+        uses: neondatabase/create-branch-action@v6
+        with:
+          project_id: ${{ vars.NEON_PROJECT_ID }}
+          branch_name: preview/pr-${{ github.event.number }}-${{ needs.setup.outputs.branch }}
+          api_key: ${{ secrets.NEON_API_KEY }}
+          expires_at: ${{ env.EXPIRES_AT }}
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '18'
+          cache: 'npm'
+          cache-dependency-path: 'EcoRideConnect/package-lock.json'
+
+      - name: Install dependencies
+        working-directory: EcoRideConnect
+        run: npm ci
+
+      - name: Run migrations (Drizzle push)
+        working-directory: EcoRideConnect
+        env:
+          # Prefer pooled connection for CI
+          DATABASE_URL: ${{ steps.create_neon_branch.outputs.db_url_with_pooler }}
+        run: |
+          npx drizzle-kit push
+
+      - name: Prepare PR comment body
+        id: pr_comment
+        env:
+          DB_URL: ${{ steps.create_neon_branch.outputs.db_url_with_pooler }}
+          BRANCH_NAME: preview/pr-${{ github.event.number }}-${{ needs.setup.outputs.branch }}
+          PROJECT_ID: ${{ vars.NEON_PROJECT_ID }}
+          ALLOW_POST_DB_URL: ${{ vars.ALLOW_POST_DB_URL }}
+        run: |
+          set -euo pipefail
+          MASKED_URL=$(echo "$DB_URL" | sed -E 's#(://[^:]+:)[^@]+@#\1****@#')
+          if [ "${ALLOW_POST_DB_URL:-}" = "true" ]; then
+            DISPLAY_URL="$DB_URL"
+            NOTE="(Full URL shown as ALLOW_POST_DB_URL=true)"
+          else
+            DISPLAY_URL="$MASKED_URL"
+            NOTE="(Password masked. Set repository variable ALLOW_POST_DB_URL=true to show full URL.)"
+          fi
+          echo "body<<'EOF'" >> "$GITHUB_OUTPUT"
+          echo "🚀 Neon Preview DB ready for this PR" >> "$GITHUB_OUTPUT"
+          echo >> "$GITHUB_OUTPUT"
+          echo "- Branch: $BRANCH_NAME" >> "$GITHUB_OUTPUT"
+          echo "- Project: $PROJECT_ID" >> "$GITHUB_OUTPUT"
+          echo "- DATABASE_URL (pooled):" >> "$GITHUB_OUTPUT"
+          echo "\n\`\n$DISPLAY_URL\n\`\n" >> "$GITHUB_OUTPUT"
+          echo "$NOTE" >> "$GITHUB_OUTPUT"
+          echo >> "$GITHUB_OUTPUT"
+          echo "Tip: migrations applied via drizzle-kit push ✅" >> "$GITHUB_OUTPUT"
+          echo 'EOF' >> "$GITHUB_OUTPUT"
+
+      - name: Comment preview DB on PR
+        uses: peter-evans/create-or-update-comment@v4
+        with:
+          issue-number: ${{ github.event.number }}
+          body: ${{ steps.pr_comment.outputs.body }}
+
+      # Optional: Push ephemeral DATABASE_URL to Vercel Preview env for this PR branch
+      - name: Install jq (for JSON parsing)
+        if: ${{ secrets.VERCEL_TOKEN && vars.VERCEL_PROJECT_ID }}
+        run: sudo apt-get update && sudo apt-get install -y jq
+
+      - name: Upsert Vercel env var DATABASE_URL for this PR branch (Preview)
+        if: ${{ secrets.VERCEL_TOKEN && vars.VERCEL_PROJECT_ID }}
+        env:
+          VERCEL_TOKEN: ${{ secrets.VERCEL_TOKEN }}
+          VERCEL_PROJECT_ID: ${{ vars.VERCEL_PROJECT_ID }}
+          DB_URL: ${{ steps.create_neon_branch.outputs.db_url_with_pooler }}
+          GIT_BRANCH: preview/pr-${{ github.event.number }}-${{ needs.setup.outputs.branch }}
+        run: |
+          set -euo pipefail
+          # Delete existing DATABASE_URL env var bound to this gitBranch (if any)
+          list=$(curl -fsSL -H "Authorization: Bearer $VERCEL_TOKEN" \
+            "https://api.vercel.com/v9/projects/$VERCEL_PROJECT_ID/env?key=DATABASE_URL")
+          ids=$(echo "$list" | jq -r '.envs[] | select(.gitBranch == env.GIT_BRANCH) | .id') || true
+          if [ -n "${ids:-}" ]; then
+            for id in $ids; do
+              curl -fsS -X DELETE -H "Authorization: Bearer $VERCEL_TOKEN" \
+                "https://api.vercel.com/v9/projects/$VERCEL_PROJECT_ID/env/$id" || true
+            done
+          fi
+          # Create new env var scoped to this PR branch in Preview target
+          curl -fsS -X POST \
+            -H "Authorization: Bearer $VERCEL_TOKEN" \
+            -H "Content-Type: application/json" \
+            -d '{
+              "type":"encrypted",
+              "key":"DATABASE_URL",
+              "value":"'"$DB_URL"'",
+              "target":["preview"],
+              "gitBranch":"'"$GIT_BRANCH"'"
+            }' \
+            "https://api.vercel.com/v9/projects/$VERCEL_PROJECT_ID/env"
+
+      # Optional: Post schema diff as a PR comment (requires permissions)
+      # - name: Post Schema Diff Comment to PR
+      #   uses: neondatabase/schema-diff-action@v1
+      #   with:
+      #     project_id: ${{ vars.NEON_PROJECT_ID }}
+      #     compare_branch: preview/pr-${{ github.event.number }}-${{ needs.setup.outputs.branch }}
+      #     api_key: ${{ secrets.NEON_API_KEY }}
+
+  delete_neon_branch:
+    name: Delete Neon Branch
+    needs: setup
+    if: github.event_name == 'pull_request' && github.event.action == 'closed'
+    runs-on: ubuntu-latest
+    steps:
+      - name: Delete Neon Branch
+        uses: neondatabase/delete-branch-action@v3
+        with:
+          project_id: ${{ vars.NEON_PROJECT_ID }}
+          branch: preview/pr-${{ github.event.number }}-${{ needs.setup.outputs.branch }}
+          api_key: ${{ secrets.NEON_API_KEY }}
+
+      # Optional: Clean up Vercel env var for this PR branch
+      - name: Remove Vercel env var for this PR branch
+        if: ${{ secrets.VERCEL_TOKEN && vars.VERCEL_PROJECT_ID }}
+        env:
+          VERCEL_TOKEN: ${{ secrets.VERCEL_TOKEN }}
+          VERCEL_PROJECT_ID: ${{ vars.VERCEL_PROJECT_ID }}
+          GIT_BRANCH: preview/pr-${{ github.event.number }}-${{ needs.setup.outputs.branch }}
+        run: |
+          set -euo pipefail
+          list=$(curl -fsSL -H "Authorization: Bearer $VERCEL_TOKEN" \
+            "https://api.vercel.com/v9/projects/$VERCEL_PROJECT_ID/env?key=DATABASE_URL")
+          ids=$(echo "$list" | jq -r '.envs[] | select(.gitBranch == env.GIT_BRANCH) | .id') || true
+          if [ -n "${ids:-}" ]; then
+            for id in $ids; do
+              curl -fsS -X DELETE -H "Authorization: Bearer $VERCEL_TOKEN" \
+                "https://api.vercel.com/v9/projects/$VERCEL_PROJECT_ID/env/$id" || true
+            done
+          fi
