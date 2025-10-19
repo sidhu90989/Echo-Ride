@@ -312,6 +312,7 @@ var init_db = __esm({
 // server/index.ts
 import { config as config4 } from "dotenv";
 import express2 from "express";
+import cors from "cors";
 import session from "express-session";
 import MemoryStoreFactory from "memorystore";
 
@@ -734,6 +735,48 @@ var storage = StorageSelector.getInstance();
 // server/routes.ts
 import Stripe from "stripe";
 import admin from "firebase-admin";
+
+// server/integrations/nameApi.ts
+function getEnv() {
+  const isProd = process.env.NODE_ENV === "production";
+  const baseUrl = isProd ? process.env.NAME_API_BASE_URL_PROD : process.env.NAME_API_BASE_URL_DEV;
+  const token = isProd ? process.env.NAME_API_TOKEN_PROD : process.env.NAME_API_TOKEN_DEV;
+  if (!baseUrl || !token) {
+    throw new Error("[nameApi] Missing NAME_API_* envs. Please configure .env");
+  }
+  return { baseUrl, token };
+}
+async function fetchJson(path3, init) {
+  const { baseUrl, token } = getEnv();
+  const controller = new AbortController();
+  const timeout = setTimeout(() => controller.abort(), 1e4);
+  try {
+    const res = await fetch(`${baseUrl}${path3}`, {
+      ...init,
+      method: init?.method || "GET",
+      headers: {
+        "Content-Type": "application/json",
+        "Authorization": `Bearer ${token}`,
+        ...init?.headers || {}
+      },
+      signal: controller.signal
+    });
+    if (!res.ok) {
+      const text2 = await res.text().catch(() => "");
+      throw new Error(`[nameApi] ${res.status} ${res.statusText} :: ${text2}`);
+    }
+    return await res.json();
+  } finally {
+    clearTimeout(timeout);
+  }
+}
+var nameApi = {
+  ping: () => fetchJson(`/ping`),
+  whoAmI: () => fetchJson(`/whoami`)
+};
+var nameApi_default = nameApi;
+
+// server/routes.ts
 config3();
 var SIMPLE_AUTH2 = process.env.SIMPLE_AUTH === "true";
 console.log("\u{1F527} Environment check:", {
@@ -754,12 +797,12 @@ var stripe = (() => {
   return new Stripe(process.env.STRIPE_SECRET_KEY);
 })();
 async function verifyFirebaseToken(req, res, next) {
+  if (req.session?.user) {
+    req.firebaseUid = req.session.user.firebaseUid;
+    req.email = req.session.user.email;
+    return next();
+  }
   if (SIMPLE_AUTH2) {
-    if (req.session?.user) {
-      req.firebaseUid = req.session.user.firebaseUid;
-      req.email = req.session.user.email;
-      return next();
-    }
     return res.status(401).json({ error: "Unauthorized" });
   }
   const authHeader = req.headers.authorization;
@@ -802,7 +845,8 @@ function generateReferralCode(name) {
   return `${namePart}${randomPart}`;
 }
 async function registerRoutes(app2) {
-  if (SIMPLE_AUTH2) {
+  if (SIMPLE_AUTH2 || process.env.ALLOW_SIMPLE_AUTH_ROUTES === "true") {
+    console.log(`[auth] registering simple-auth routes (SIMPLE_AUTH=${SIMPLE_AUTH2}, ALLOW_SIMPLE_AUTH_ROUTES=${process.env.ALLOW_SIMPLE_AUTH_ROUTES})`);
     registerSimpleAuth(app2);
   }
   const verifyHandler = async (req, res) => {
@@ -875,6 +919,14 @@ async function registerRoutes(app2) {
   });
   app2.get("/api/health", (_req, res) => {
     res.json({ ok: true, mode: SIMPLE_AUTH2 ? "simple" : "full" });
+  });
+  app2.get("/api/integrations/name-api/whoami", async (_req, res) => {
+    try {
+      const data = await nameApi_default.whoAmI();
+      res.json({ ok: true, data });
+    } catch (e) {
+      res.status(500).json({ ok: false, error: e?.message || String(e) });
+    }
   });
   app2.get("/api/rider/stats", verifyFirebaseToken, async (req, res) => {
     try {
@@ -1194,11 +1246,26 @@ import { createServer as createViteServer, createLogger } from "vite";
 // vite.config.ts
 import { defineConfig } from "vite";
 import react from "@vitejs/plugin-react";
+import { VitePWA } from "vite-plugin-pwa";
 import path from "path";
 import runtimeErrorOverlay from "@replit/vite-plugin-runtime-error-modal";
 var vite_config_default = defineConfig({
   plugins: [
     react(),
+    VitePWA({
+      registerType: "autoUpdate",
+      manifest: {
+        name: "EcoRide Connect",
+        short_name: "EcoRide",
+        description: "Eco-friendly ridesharing platform",
+        theme_color: "#00A86B",
+        background_color: "#ffffff",
+        icons: [
+          { src: "/icons/icon-192x192.png", sizes: "192x192", type: "image/png" },
+          { src: "/icons/icon-512x512.png", sizes: "512x512", type: "image/png" }
+        ]
+      }
+    }),
     runtimeErrorOverlay(),
     ...process.env.NODE_ENV !== "production" && process.env.REPL_ID !== void 0 ? [
       await import("@replit/vite-plugin-cartographer").then(
@@ -1221,6 +1288,9 @@ var vite_config_default = defineConfig({
     outDir: path.resolve(import.meta.dirname, "dist/public"),
     emptyOutDir: true
   },
+  // Allow overriding base path for different hosting targets.
+  // Default keeps GH Pages base in production; Render sets VITE_BASE_PATH="/".
+  base: process.env.VITE_BASE_PATH || (process.env.NODE_ENV === "production" ? "/Echo-Ride/" : "/"),
   server: {
     fs: {
       strict: true,
@@ -1302,6 +1372,14 @@ var app = express2();
 app.set("trust proxy", 1);
 app.use(express2.json());
 app.use(express2.urlencoded({ extended: false }));
+if (process.env.FRONTEND_ORIGIN) {
+  app.use(
+    cors({
+      origin: process.env.FRONTEND_ORIGIN.split(",").map((s) => s.trim()),
+      credentials: true
+    })
+  );
+}
 var MemoryStore = MemoryStoreFactory(session);
 var isCodespaces = !!process.env.CODESPACES;
 var forceSecure = process.env.COOKIE_SECURE === "true";

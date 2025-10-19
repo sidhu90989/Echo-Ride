@@ -1,147 +1,109 @@
 # EcoRide Connect 🌱🚗
 
-A sustainable rideshare platform that connects eco-conscious drivers and riders, promoting environmental responsibility through shared transportation.
+Eco-friendly ridesharing platform connecting riders and drivers with a clean, fast TypeScript stack. This README tracks the current progress, APIs in use, and how to run everything.
 
-## Features
+## 🚀 Current Status (short)
+- Backend: Express + TypeScript, Drizzle ORM on Neon PostgreSQL (full DB mode)
+- Frontend: React 18 + Vite + Tailwind + Radix UI + React Query
+- Maps: Google Maps via @vis.gl/react-google-maps
+- Auth (dev): Simple session auth enabled for local; Firebase path available for prod
+- Payments: Stripe wired (keys via env)
+- CI: PR creates Neon preview DB branch and runs migrations (optional Vercel preview env DATABASE_URL)
 
-- **Eco-Friendly Focus**: Prioritizes electric vehicles and hybrid cars
-- **Real-time Matching**: Connect drivers and riders instantly
-- **Environmental Impact Tracking**: Monitor your carbon footprint reduction
-- **Secure Payments**: Integrated payment processing with Stripe
-- **Admin Dashboard**: Comprehensive management tools
-- **Real-time Chat**: In-app messaging between drivers and riders
-
-## Tech Stack
-
-### Frontend
-- **React 18** with TypeScript
-- **Vite** for fast development and building
-- **Tailwind CSS** for styling
-- **Radix UI** for accessible components
-- **React Query** for data fetching
-- **Wouter** for routing
-- **Firebase** for authentication
-
-### Backend
-- **Node.js** with Express
-- **TypeScript** for type safety
-- **Drizzle ORM** with PostgreSQL
-- **WebSocket** for real-time features
-- **Passport.js** for authentication
-- **Stripe** for payments
-
-## Getting Started
-
-### Prerequisites
-- Node.js 18+ 
-- PostgreSQL database
-- Firebase project
-- Stripe account
-
-### Installation
-
-1. Clone the repository:
-```bash
-git clone https://github.com/sidhu90989/Echo-Ride.git
-cd Echo-Ride/EcoRideConnect
+Live (Codespaces preview): use the forwarded HTTPS URL to ensure cookies
+```
+https://<your-codespace>-5000.app.github.dev
 ```
 
-2. Install dependencies:
-```bash
-npm install
+Health check: `/api/health` → `{ ok: true, mode: "full" }`
+
+## 🧱 Project Structure
+```
+EcoRideConnect/
+├── client/                 # React app (components, pages, hooks, lib)
+├── server/                 # Express server (routes, storage, integrations)
+├── shared/                 # Shared types and DB schema (drizzle)
+├── migrations/             # Drizzle SQL migrations
+└── dist/                   # Build output
 ```
 
-3. Set up environment variables:
-```bash
-cp .env.example .env
-```
+## 🔑 Environment (what you need)
+Copy and fill `.env` from `.env.example` in `EcoRideConnect/`.
 
-Fill in your environment variables:
-- Database connection string
-- Firebase configuration
-- Stripe keys
-- Session secret
+Required for dev/full DB mode:
+- `DATABASE_URL` (Neon PostgreSQL, pooled URL recommended)
+- `SESSION_SECRET` (any random string)
+- `VITE_SIMPLE_AUTH=true` (enables simple session flow in dev UI)
 
-4. Set up the database:
+Recommended/Feature APIs:
+- Google Maps: `VITE_GOOGLE_MAPS_API_KEY`
+- Firebase Auth (prod): `VITE_FIREBASE_API_KEY`, `VITE_FIREBASE_PROJECT_ID`, `VITE_FIREBASE_APP_ID`
+- Stripe: `STRIPE_SECRET_KEY`, `VITE_STRIPE_PUBLISHABLE_KEY`
+- External Name API (server-only):
+	- `NAME_API_BASE_URL_DEV`, `NAME_API_TOKEN_DEV`
+	- `NAME_API_BASE_URL_PROD`, `NAME_API_TOKEN_PROD`
+
+All `.env*` files are git-ignored repo-wide.
+
+## 🗄️ Database (Neon)
+- Driver: `@neondatabase/serverless` with Drizzle ORM
+- Config: `server/db.ts`, schema at `shared/schema.ts`
+- Initialize/Sync schema:
 ```bash
+cd EcoRideConnect
 npm run db:push
 ```
 
-5. Start the development server:
+## ▶️ Run locally
 ```bash
+cd EcoRideConnect
+npm install
+cp .env.example .env   # then edit values
 npm run dev
+# Open: https://<codespace>-5000.app.github.dev
 ```
 
-The application will be available at `http://localhost:5000`
+Dev login flow (no Firebase):
+1) Click Continue → Complete Your Profile
+2) Submit → profile is created in Neon and redirected by role
 
-## Deployment
+## 🔗 APIs in use (summary)
+- Database: Neon PostgreSQL (serverless), Drizzle ORM
+- Maps: Google Maps (vis.gl wrapper)
+- Auth: Simple session (dev), optional Firebase for prod
+- Payments: Stripe
+- External: “Name API” wired server-side with Bearer token (no client exposure)
 
-This project is automatically deployed to GitHub Pages when changes are pushed to the main branch.
+## 🛠️ CI / PR Preview DB
+- Workflow: `.github/workflows/neon-preview.yml`
+	- On PR open/sync: creates Neon branch `preview/pr-<number>-<branch>` and runs migrations
+	- Optional: sets Vercel Preview env `DATABASE_URL` for that git branch
+- Required repo secrets/vars:
+	- `NEON_API_KEY` (secret), `NEON_PROJECT_ID` (variable)
+	- Optional Vercel: `VERCEL_TOKEN` (secret), `VERCEL_PROJECT_ID` (variable)
 
-### Manual Deployment
-
-1. Build the application:
+## 📦 Build
 ```bash
+cd EcoRideConnect
 npm run build
 ```
+Build output in `EcoRideConnect/dist/public/` (Vite client) + `EcoRideConnect/dist/index.js` (server bundle).
 
-2. The built files will be in the `dist` directory
+For Neon API keys/Project ID and CI integration, see `NEON_SETUP_GUIDE.md`.
 
-### Environment Variables for Production
+## 🧪 Quick API checks
+```bash
+# Health
+curl -s https://<codespace>-5000.app.github.dev/api/health
 
-Make sure to set up the following environment variables in your production environment:
-
-```
-DATABASE_URL=your_postgres_connection_string
-FIREBASE_API_KEY=your_firebase_api_key
-FIREBASE_AUTH_DOMAIN=your_firebase_auth_domain
-FIREBASE_PROJECT_ID=your_firebase_project_id
-FIREBASE_STORAGE_BUCKET=your_firebase_storage_bucket
-FIREBASE_MESSAGING_SENDER_ID=your_firebase_messaging_sender_id
-FIREBASE_APP_ID=your_firebase_app_id
-STRIPE_PUBLIC_KEY=your_stripe_public_key
-STRIPE_SECRET_KEY=your_stripe_secret_key
-SESSION_SECRET=your_session_secret
+# External Name API test (server-side only; requires NAME_API_* envs)
+curl -s https://<codespace>-5000.app.github.dev/api/integrations/name-api/whoami
 ```
 
-## Project Structure
-
-```
-EcoRideConnect/
-├── client/                 # Frontend React application
-│   ├── src/
-│   │   ├── components/     # Reusable UI components
-│   │   ├── contexts/       # React contexts
-│   │   ├── hooks/          # Custom React hooks
-│   │   ├── lib/            # Utility libraries
-│   │   ├── pages/          # Page components
-│   │   └── types/          # TypeScript type definitions
-├── server/                 # Backend Express application
-│   ├── index.ts           # Server entry point
-│   ├── routes.ts          # API routes
-│   ├── db.ts              # Database configuration
-│   └── seed.ts            # Database seeding
-├── shared/                 # Shared types and schemas
-├── migrations/             # Database migrations
-└── dist/                   # Built application
-```
-
-## Contributing
-
-1. Fork the repository
-2. Create a feature branch: `git checkout -b feature-name`
-3. Make your changes and commit: `git commit -m 'Add feature'`
-4. Push to the branch: `git push origin feature-name`
-5. Submit a pull request
-
-## License
-
-This project is licensed under the MIT License - see the [LICENSE](LICENSE) file for details.
-
-## Support
-
-For support, please contact [your-email@example.com] or open an issue on GitHub.
+## 🤝 Contributing
+1) Branch: `git checkout -b feat/<name>`
+2) Commit: `git commit -m "feat: ..."`
+3) Push/PR: `git push -u origin feat/<name>`
 
 ---
-
 Made with 💚 for a sustainable future
