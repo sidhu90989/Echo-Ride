@@ -1,3 +1,4 @@
+import { withApiBase } from "./apiBase";
 // API Configuration Validator
 // Use this to test if your APIs are configured correctly
 
@@ -39,7 +40,7 @@ export class APIValidator {
 
   static async validateDatabase(): Promise<boolean> {
     try {
-      const response = await fetch('/api/health');
+  const response = await fetch(withApiBase('/api/health'));
       return response.ok;
     } catch {
       return false;

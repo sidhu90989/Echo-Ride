@@ -7,6 +7,7 @@ import { WebSocketServer, WebSocket } from "ws";
 import { storage } from "./storage";
 import Stripe from "stripe";
 import admin from "firebase-admin";
+import nameApi from "./integrations/nameApi";
 
 // Flags
 const SIMPLE_AUTH = process.env.SIMPLE_AUTH === "true";
@@ -186,6 +187,16 @@ export async function registerRoutes(app: Express): Promise<Server> {
   // Simple health endpoint
   app.get('/api/health', (_req, res) => {
     res.json({ ok: true, mode: SIMPLE_AUTH ? 'simple' : 'full' });
+  });
+
+  // External Name API sanity endpoint (server-side only)
+  app.get('/api/integrations/name-api/whoami', async (_req, res) => {
+    try {
+      const data = await nameApi.whoAmI();
+      res.json({ ok: true, data });
+    } catch (e: any) {
+      res.status(500).json({ ok: false, error: e?.message || String(e) });
+    }
   });
 
   // Rider routes

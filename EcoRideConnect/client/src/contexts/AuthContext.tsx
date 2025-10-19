@@ -7,6 +7,7 @@ import {
 } from "firebase/auth";
 import { auth, googleProvider } from "@/lib/firebase";
 import type { User } from "@shared/schema";
+import { withApiBase } from "@/lib/apiBase";
 
 interface AuthContextType {
   firebaseUser: FirebaseUser | null;
@@ -30,7 +31,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       // On load, try verify using session (no Authorization header)
       (async () => {
         try {
-          const response = await fetch("/api/auth/verify", { credentials: 'include' });
+          const response = await fetch(withApiBase("/api/auth/verify"), { credentials: 'include' });
           if (response.ok) {
             const userData = await response.json();
             setUser(userData);
@@ -58,7 +59,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       if (firebaseUser) {
         try {
           const token = await firebaseUser.getIdToken();
-          const response = await fetch("/api/auth/verify", {
+          const response = await fetch(withApiBase("/api/auth/verify"), {
             headers: {
               Authorization: `Bearer ${token}`,
             },
@@ -102,7 +103,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     const SIMPLE_AUTH = import.meta.env.VITE_SIMPLE_AUTH === 'true';
     try {
       if (SIMPLE_AUTH) {
-        await fetch('/api/auth/logout', { method: 'POST', credentials: 'include' });
+  await fetch(withApiBase('/api/auth/logout'), { method: 'POST', credentials: 'include' });
         setUser(null);
         return;
       }

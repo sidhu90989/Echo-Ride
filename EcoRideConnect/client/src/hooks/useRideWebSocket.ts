@@ -20,8 +20,24 @@ export function useRideWebSocket({ rideId, who, onMessage }: Options) {
   const [connected, setConnected] = useState(false);
 
   useEffect(() => {
-    const protocol = window.location.protocol === "https:" ? "wss" : "ws";
-    const url = `${protocol}://${window.location.host}/ws`;
+    // Derive WS URL from VITE_API_URL when present, otherwise same-origin
+    const apiUrl = (import.meta as any).env?.VITE_API_URL as string | undefined;
+    let url: string;
+    if (apiUrl) {
+      try {
+        const u = new URL(apiUrl);
+        u.protocol = u.protocol === "https:" ? "wss:" : "ws:";
+        u.pathname = "/ws";
+        u.search = "";
+        url = u.toString();
+      } catch {
+        const protocol = window.location.protocol === "https:" ? "wss" : "ws";
+        url = `${protocol}://${window.location.host}/ws`;
+      }
+    } else {
+      const protocol = window.location.protocol === "https:" ? "wss" : "ws";
+      url = `${protocol}://${window.location.host}/ws`;
+    }
     const ws = new WebSocket(url);
     wsRef.current = ws;
 
