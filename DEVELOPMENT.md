@@ -70,3 +70,13 @@ npm run dev
 The app automatically deploys to GitHub Pages when you push to main branch.
 
 **Live Demo**: [https://sidhu90989.github.io/Echo-Ride/](https://sidhu90989.github.io/Echo-Ride/)
+
+### PR Preview Databases (Neon)
+
+Pull Requests automatically create a temporary Neon database branch and run Drizzle migrations via the `neon-preview` workflow.
+
+Setup required (one-time in GitHub repo settings):
+- Actions Secret: `NEON_API_KEY` (Neon Console → Settings → API Keys)
+- Actions Variable: `NEON_PROJECT_ID` (Project settings → Project ID)
+
+The workflow file is at `.github/workflows/neon-preview.yml` and runs on PR open/sync, then deletes the Neon branch when the PR is closed.

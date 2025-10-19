@@ -7,12 +7,17 @@ EcoRideConnect/dist/
 build/
 *.tsbuildinfo
 
-# Environment variables
+# Environment variables (protect secrets everywhere)
+# Root-level and nested .env files
 .env
+**/.env
+.env.*
+**/.env.*
 .env.local
 .env.development.local
 .env.test.local
 .env.production.local
+EcoRideConnect/.env
 
 # Logs
 npm-debug.log*

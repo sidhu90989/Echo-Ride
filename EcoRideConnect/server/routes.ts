@@ -34,13 +34,17 @@ const stripe: Stripe | null = (() => {
 
 // Helper to verify Firebase token
 async function verifyFirebaseToken(req: any, res: any, next: any) {
+  // Always allow a valid session user in development or when using simple auth.
+  // This enables a hybrid mode: SIMPLE_AUTH can be false (DB mode) while
+  // the client uses a simple session login for local testing.
+  if (req.session?.user) {
+    req.firebaseUid = req.session.user.firebaseUid;
+    req.email = req.session.user.email;
+    return next();
+  }
+
   if (SIMPLE_AUTH) {
-    // Use session-based check
-    if (req.session?.user) {
-      req.firebaseUid = req.session.user.firebaseUid;
-      req.email = req.session.user.email;
-      return next();
-    }
+    // If we expected simple auth but no session is present, reject.
     return res.status(401).json({ error: 'Unauthorized' });
   }
 
@@ -91,7 +95,11 @@ function generateReferralCode(name: string): string {
 }
 
 export async function registerRoutes(app: Express): Promise<Server> {
-  if (SIMPLE_AUTH) {
+  // Enable simple auth routes either when SIMPLE_AUTH=true or when explicitly
+  // allowed via env for hybrid development with a real database.
+  if (SIMPLE_AUTH || process.env.ALLOW_SIMPLE_AUTH_ROUTES === 'true') {
+    // eslint-disable-next-line no-console
+    console.log(`[auth] registering simple-auth routes (SIMPLE_AUTH=${SIMPLE_AUTH}, ALLOW_SIMPLE_AUTH_ROUTES=${process.env.ALLOW_SIMPLE_AUTH_ROUTES})`);
     registerSimpleAuth(app);
   }
   // Authentication routes
