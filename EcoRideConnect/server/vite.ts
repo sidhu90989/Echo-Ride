@@ -78,6 +78,18 @@ export function serveStatic(app: Express) {
 
   app.use(express.static(distPath));
 
+  // Fallback: ensure icons are served even if not emitted to dist/public
+  // This maps /icons to the source public/icons as a safety net.
+  try {
+    const sourcePublic = path.resolve(import.meta.dirname, "..", "client", "public");
+    const sourceIcons = path.resolve(sourcePublic, "icons");
+    if (fs.existsSync(sourceIcons)) {
+      app.use("/icons", express.static(sourceIcons));
+    }
+  } catch {
+    // ignore fallback errors
+  }
+
   // fall through to index.html if the file doesn't exist
   app.use("*", (_req, res) => {
     res.sendFile(path.resolve(distPath, "index.html"));
