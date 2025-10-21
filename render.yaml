@@ -23,6 +23,10 @@ services:
         generateValue: true
       - key: VITE_BASE_PATH
         value: /
+      # Run in memory mode on Render unless a DATABASE_URL is provided
+      # This prevents crashes when Neon isn't configured yet
+      - key: SIMPLE_AUTH
+        value: 'true'
       # Auth/dev toggles
       - key: VITE_SIMPLE_AUTH
         value: 'true'
