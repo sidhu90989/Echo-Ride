@@ -56,6 +56,21 @@ export default defineConfig({
         ? path.resolve(import.meta.dirname, "client", "dist")
         : path.resolve(import.meta.dirname, "dist/public"),
       emptyOutDir: true,
+      // Reduce noisy warnings and split large vendor bundles for faster loads on Vercel
+      chunkSizeWarningLimit: 1500, // KB; only affects warning threshold, not output
+      rollupOptions: {
+        output: {
+          // Auto-split vendor code by top-level package to avoid a single huge chunk
+          manualChunks(id) {
+            if (id.includes('node_modules')) {
+              const parts = id.toString().split('node_modules/')[1].split('/');
+              // Scoped packages like @radix-ui/react-... -> @radix-ui
+              const pkg = parts[0].startsWith('@') ? `${parts[0]}/${parts[1]}` : parts[0];
+              return pkg;
+            }
+          },
+        },
+      },
     };
   })(),
   // Allow overriding base path for different hosting targets.
