@@ -1295,7 +1295,22 @@ var vite_config_default = defineConfig({
     const isVercel = process.env.VERCEL === "1" || process.env.VERCEL === "true";
     return {
       outDir: isVercel ? path.resolve(import.meta.dirname, "client", "dist") : path.resolve(import.meta.dirname, "dist/public"),
-      emptyOutDir: true
+      emptyOutDir: true,
+      // Reduce noisy warnings and split large vendor bundles for faster loads on Vercel
+      chunkSizeWarningLimit: 1500,
+      // KB; only affects warning threshold, not output
+      rollupOptions: {
+        output: {
+          // Auto-split vendor code by top-level package to avoid a single huge chunk
+          manualChunks(id) {
+            if (id.includes("node_modules")) {
+              const parts = id.toString().split("node_modules/")[1].split("/");
+              const pkg = parts[0].startsWith("@") ? `${parts[0]}/${parts[1]}` : parts[0];
+              return pkg;
+            }
+          }
+        }
+      }
     };
   })(),
   // Allow overriding base path for different hosting targets.
@@ -1371,28 +1386,15 @@ function serveStatic(app2) {
     );
   }
   app2.use(express.static(distPath));
-  try {
-    const sourcePublic = path2.resolve(import.meta.dirname, "..", "client", "public");
-    const sourceIcons = path2.resolve(sourcePublic, "icons");
-    if (fs.existsSync(sourceIcons)) {
-      const distIcons = path2.resolve(distPath, "icons");
-      app2.get("/icons/:file", (req, res, next) => {
-        const file = req.params.file;
-        const tryPaths = [
-          path2.resolve(distIcons, file),
-          path2.resolve(sourceIcons, file)
-        ];
-        for (const p of tryPaths) {
-          if (fs.existsSync(p)) {
-            return res.sendFile(p);
-          }
-        }
-        res.status(404).end();
-      });
-      app2.use("/icons", express.static(sourceIcons));
+  const distIcons = path2.resolve(distPath, "icons");
+  app2.get("/icons/:file", (req, res) => {
+    const file = req.params.file;
+    const iconPath = path2.resolve(distIcons, file);
+    if (fs.existsSync(iconPath)) {
+      return res.sendFile(iconPath);
     }
-  } catch {
-  }
+    res.status(404).end();
+  });
   app2.use("*", (_req, res) => {
     res.sendFile(path2.resolve(distPath, "index.html"));
   });
