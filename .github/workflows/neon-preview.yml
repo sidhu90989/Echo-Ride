@@ -31,7 +31,7 @@ jobs:
       # Provide env versions of optional Vercel config and a boolean flag for gating
       VERCEL_TOKEN: ${{ secrets.VERCEL_TOKEN }}
       VERCEL_PROJECT_ID: ${{ vars.VERCEL_PROJECT_ID }}
-      HAS_VERCEL: ${{ (secrets.VERCEL_TOKEN != '' && vars.VERCEL_PROJECT_ID != '') && 'true' || '' }}
+      HAS_VERCEL: ${{ secrets.VERCEL_TOKEN != '' && 'true' || '' }}
     permissions:
       contents: read
       pull-requests: write
@@ -117,18 +117,20 @@ jobs:
         env:
           VERCEL_TOKEN: ${{ env.VERCEL_TOKEN }}
           VERCEL_PROJECT_ID: ${{ env.VERCEL_PROJECT_ID }}
+          DEFAULT_PROJECT_ID: prj_eYvqk3ED2nSMx7CgskpTlNqQmzyL
           DB_URL: ${{ steps.create_neon_branch.outputs.db_url_with_pooler }}
           GIT_BRANCH: preview/pr-${{ github.event.number }}-${{ needs.setup.outputs.branch }}
         run: |
           set -euo pipefail
+          PROJECT_ID="${VERCEL_PROJECT_ID:-$DEFAULT_PROJECT_ID}"
           # Delete existing DATABASE_URL env var bound to this gitBranch (if any)
           list=$(curl -fsSL -H "Authorization: Bearer $VERCEL_TOKEN" \
-            "https://api.vercel.com/v9/projects/$VERCEL_PROJECT_ID/env?key=DATABASE_URL")
+            "https://api.vercel.com/v9/projects/$PROJECT_ID/env?key=DATABASE_URL")
           ids=$(echo "$list" | jq -r '.envs[] | select(.gitBranch == env.GIT_BRANCH) | .id') || true
           if [ -n "${ids:-}" ]; then
             for id in $ids; do
               curl -fsS -X DELETE -H "Authorization: Bearer $VERCEL_TOKEN" \
-                "https://api.vercel.com/v9/projects/$VERCEL_PROJECT_ID/env/$id" || true
+                "https://api.vercel.com/v9/projects/$PROJECT_ID/env/$id" || true
             done
           fi
           # Create new env var scoped to this PR branch in Preview target
@@ -142,7 +144,7 @@ jobs:
               "target":["preview"],
               "gitBranch":"'"$GIT_BRANCH"'"
             }' \
-            "https://api.vercel.com/v9/projects/$VERCEL_PROJECT_ID/env"
+            "https://api.vercel.com/v9/projects/$PROJECT_ID/env"
 
       # Optional: Post schema diff as a PR comment (requires permissions)
       # - name: Post Schema Diff Comment to PR
@@ -160,7 +162,7 @@ jobs:
     env:
       VERCEL_TOKEN: ${{ secrets.VERCEL_TOKEN }}
       VERCEL_PROJECT_ID: ${{ vars.VERCEL_PROJECT_ID }}
-      HAS_VERCEL: ${{ (secrets.VERCEL_TOKEN != '' && vars.VERCEL_PROJECT_ID != '') && 'true' || '' }}
+      HAS_VERCEL: ${{ secrets.VERCEL_TOKEN != '' && 'true' || '' }}
     steps:
       - name: Delete Neon Branch
         uses: neondatabase/delete-branch-action@v3
@@ -175,15 +177,17 @@ jobs:
         env:
           VERCEL_TOKEN: ${{ env.VERCEL_TOKEN }}
           VERCEL_PROJECT_ID: ${{ env.VERCEL_PROJECT_ID }}
+          DEFAULT_PROJECT_ID: prj_eYvqk3ED2nSMx7CgskpTlNqQmzyL
           GIT_BRANCH: preview/pr-${{ github.event.number }}-${{ needs.setup.outputs.branch }}
         run: |
           set -euo pipefail
+          PROJECT_ID="${VERCEL_PROJECT_ID:-$DEFAULT_PROJECT_ID}"
           list=$(curl -fsSL -H "Authorization: Bearer $VERCEL_TOKEN" \
-            "https://api.vercel.com/v9/projects/$VERCEL_PROJECT_ID/env?key=DATABASE_URL")
+            "https://api.vercel.com/v9/projects/$PROJECT_ID/env?key=DATABASE_URL")
           ids=$(echo "$list" | jq -r '.envs[] | select(.gitBranch == env.GIT_BRANCH) | .id') || true
           if [ -n "${ids:-}" ]; then
             for id in $ids; do
               curl -fsS -X DELETE -H "Authorization: Bearer $VERCEL_TOKEN" \
-                "https://api.vercel.com/v9/projects/$VERCEL_PROJECT_ID/env/$id" || true
+                "https://api.vercel.com/v9/projects/$PROJECT_ID/env/$id" || true
             done
           fi
