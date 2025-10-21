@@ -20,12 +20,14 @@ jobs:
         with:
           node-version: '18'
           cache: 'npm'
+          cache-dependency-path: 'EcoRideConnect/package-lock.json'
 
       - name: Install dependencies
+        working-directory: EcoRideConnect
         run: npm ci
 
       - name: Build (client + server)
-        working-directory: ./
+        working-directory: EcoRideConnect
         run: npm run build
 
       - name: Upload build artifact
