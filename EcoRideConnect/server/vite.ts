@@ -84,6 +84,23 @@ export function serveStatic(app: Express) {
     const sourcePublic = path.resolve(import.meta.dirname, "..", "client", "public");
     const sourceIcons = path.resolve(sourcePublic, "icons");
     if (fs.existsSync(sourceIcons)) {
+      // First, explicitly serve icons from dist if present
+      const distIcons = path.resolve(distPath, "icons");
+      app.get("/icons/:file", (req, res, next) => {
+        const file = req.params.file;
+        const tryPaths = [
+          path.resolve(distIcons, file),
+          path.resolve(sourceIcons, file),
+        ];
+        for (const p of tryPaths) {
+          if (fs.existsSync(p)) {
+            return res.sendFile(p);
+          }
+        }
+        // If not found, return 404 to avoid SPA fallback for assets
+        res.status(404).end();
+      });
+      // Also mount the directory in case listing/other assets are requested
       app.use("/icons", express.static(sourceIcons));
     }
   } catch {

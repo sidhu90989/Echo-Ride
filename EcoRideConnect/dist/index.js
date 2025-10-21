@@ -1254,12 +1254,19 @@ var vite_config_default = defineConfig({
     react(),
     VitePWA({
       registerType: "autoUpdate",
+      includeAssets: [
+        "icons/icon-192x192.png",
+        "icons/icon-512x512.png"
+      ],
       manifest: {
         name: "EcoRide Connect",
         short_name: "EcoRide",
         description: "Eco-friendly ridesharing platform",
         theme_color: "#00A86B",
         background_color: "#ffffff",
+        start_url: "/",
+        scope: "/",
+        display: "standalone",
         icons: [
           { src: "/icons/icon-192x192.png", sizes: "192x192", type: "image/png" },
           { src: "/icons/icon-512x512.png", sizes: "512x512", type: "image/png" }
@@ -1361,6 +1368,28 @@ function serveStatic(app2) {
     );
   }
   app2.use(express.static(distPath));
+  try {
+    const sourcePublic = path2.resolve(import.meta.dirname, "..", "client", "public");
+    const sourceIcons = path2.resolve(sourcePublic, "icons");
+    if (fs.existsSync(sourceIcons)) {
+      const distIcons = path2.resolve(distPath, "icons");
+      app2.get("/icons/:file", (req, res, next) => {
+        const file = req.params.file;
+        const tryPaths = [
+          path2.resolve(distIcons, file),
+          path2.resolve(sourceIcons, file)
+        ];
+        for (const p of tryPaths) {
+          if (fs.existsSync(p)) {
+            return res.sendFile(p);
+          }
+        }
+        res.status(404).end();
+      });
+      app2.use("/icons", express.static(sourceIcons));
+    }
+  } catch {
+  }
   app2.use("*", (_req, res) => {
     res.sendFile(path2.resolve(distPath, "index.html"));
   });
