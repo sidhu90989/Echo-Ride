@@ -1009,6 +1009,26 @@ async function registerRoutes(app2) {
         co2Saved: co2Saved.toString(),
         ecoPointsEarned: ecoPoints
       });
+      try {
+        const wssLocal = req.app.locals?.wss;
+        if (wssLocal) {
+          wssLocal.clients.forEach((client) => {
+            if (client.readyState === WebSocket.OPEN) {
+              client.send(JSON.stringify({
+                type: "ride_booked",
+                rideId: ride.id,
+                pickupLat,
+                pickupLng,
+                dropoffLat,
+                dropoffLng,
+                vehicleType,
+                at: Date.now()
+              }));
+            }
+          });
+        }
+      } catch {
+      }
       res.json(ride);
     } catch (error) {
       res.status(500).json({ error: error.message });
@@ -1050,6 +1070,22 @@ async function registerRoutes(app2) {
         status: "accepted",
         acceptedAt: /* @__PURE__ */ new Date()
       });
+      try {
+        const wssLocal = req.app.locals?.wss;
+        if (wssLocal) {
+          wssLocal.clients.forEach((client) => {
+            if (client.readyState === WebSocket.OPEN) {
+              client.send(JSON.stringify({
+                type: "ride_accepted",
+                rideId: updatedRide.id,
+                driverId: user.id,
+                at: Date.now()
+              }));
+            }
+          });
+        }
+      } catch {
+      }
       res.json(updatedRide);
     } catch (error) {
       res.status(500).json({ error: error.message });
@@ -1207,6 +1243,7 @@ async function registerRoutes(app2) {
   });
   const httpServer = createServer(app2);
   const wss = new WebSocketServer({ server: httpServer, path: "/ws" });
+  app2.locals.wss = wss;
   wss.on("connection", (ws2) => {
     console.log("Client connected to WebSocket");
     ws2.on("message", (message) => {
@@ -1267,9 +1304,17 @@ var vite_config_default = defineConfig({
         start_url: "/",
         scope: "/",
         display: "standalone",
+        display_override: ["standalone"],
+        orientation: "portrait",
+        categories: ["travel", "navigation"],
+        prefer_related_applications: false,
         icons: [
-          { src: "/icons/icon-192x192.png", sizes: "192x192", type: "image/png" },
-          { src: "/icons/icon-512x512.png", sizes: "512x512", type: "image/png" }
+          { src: "/icons/icon-192x192.png", sizes: "192x192", type: "image/png", purpose: "any maskable" },
+          { src: "/icons/icon-512x512.png", sizes: "512x512", type: "image/png", purpose: "any maskable" }
+        ],
+        shortcuts: [
+          { name: "Book a Ride", url: "/rider", short_name: "Rider" },
+          { name: "Drive", url: "/driver", short_name: "Driver" }
         ]
       }
     }),
