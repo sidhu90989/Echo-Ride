@@ -22,9 +22,17 @@ export default defineConfig({
         start_url: '/',
         scope: '/',
         display: 'standalone',
+        display_override: ['standalone'],
+        orientation: 'portrait',
+        categories: ['travel', 'navigation'],
+        prefer_related_applications: false,
         icons: [
-          { src: '/icons/icon-192x192.png', sizes: '192x192', type: 'image/png' },
-          { src: '/icons/icon-512x512.png', sizes: '512x512', type: 'image/png' },
+          { src: '/icons/icon-192x192.png', sizes: '192x192', type: 'image/png', purpose: 'any maskable' },
+          { src: '/icons/icon-512x512.png', sizes: '512x512', type: 'image/png', purpose: 'any maskable' },
+        ],
+        shortcuts: [
+          { name: 'Book a Ride', url: '/rider', short_name: 'Rider' },
+          { name: 'Drive', url: '/driver', short_name: 'Driver' }
         ],
       },
     }),
