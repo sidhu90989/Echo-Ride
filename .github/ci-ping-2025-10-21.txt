@@ -1,0 +1,1 @@
+Trigger CI to verify Vercel deploy gating. Safe to delete.
