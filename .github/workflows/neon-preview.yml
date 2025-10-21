@@ -27,6 +27,11 @@ jobs:
       github.event.action == 'opened' ||
       github.event.action == 'reopened')
     runs-on: ubuntu-latest
+    env:
+      # Provide env versions of optional Vercel config and a boolean flag for gating
+      VERCEL_TOKEN: ${{ secrets.VERCEL_TOKEN }}
+      VERCEL_PROJECT_ID: ${{ vars.VERCEL_PROJECT_ID }}
+      HAS_VERCEL: ${{ (secrets.VERCEL_TOKEN != '' && vars.VERCEL_PROJECT_ID != '') && 'true' || '' }}
     permissions:
       contents: read
       pull-requests: write
@@ -104,14 +109,14 @@ jobs:
 
       # Optional: Push ephemeral DATABASE_URL to Vercel Preview env for this PR branch
       - name: Install jq (for JSON parsing)
-        if: ${{ secrets.VERCEL_TOKEN != '' && vars.VERCEL_PROJECT_ID != '' }}
+        if: ${{ env.HAS_VERCEL != '' }}
         run: sudo apt-get update && sudo apt-get install -y jq
 
       - name: Upsert Vercel env var DATABASE_URL for this PR branch (Preview)
-        if: ${{ secrets.VERCEL_TOKEN != '' && vars.VERCEL_PROJECT_ID != '' }}
+        if: ${{ env.HAS_VERCEL != '' }}
         env:
-          VERCEL_TOKEN: ${{ secrets.VERCEL_TOKEN }}
-          VERCEL_PROJECT_ID: ${{ vars.VERCEL_PROJECT_ID }}
+          VERCEL_TOKEN: ${{ env.VERCEL_TOKEN }}
+          VERCEL_PROJECT_ID: ${{ env.VERCEL_PROJECT_ID }}
           DB_URL: ${{ steps.create_neon_branch.outputs.db_url_with_pooler }}
           GIT_BRANCH: preview/pr-${{ github.event.number }}-${{ needs.setup.outputs.branch }}
         run: |
@@ -152,6 +157,10 @@ jobs:
     needs: setup
     if: github.event_name == 'pull_request' && github.event.action == 'closed'
     runs-on: ubuntu-latest
+    env:
+      VERCEL_TOKEN: ${{ secrets.VERCEL_TOKEN }}
+      VERCEL_PROJECT_ID: ${{ vars.VERCEL_PROJECT_ID }}
+      HAS_VERCEL: ${{ (secrets.VERCEL_TOKEN != '' && vars.VERCEL_PROJECT_ID != '') && 'true' || '' }}
     steps:
       - name: Delete Neon Branch
         uses: neondatabase/delete-branch-action@v3
@@ -162,10 +171,10 @@ jobs:
 
       # Optional: Clean up Vercel env var for this PR branch
       - name: Remove Vercel env var for this PR branch
-        if: ${{ secrets.VERCEL_TOKEN != '' && vars.VERCEL_PROJECT_ID != '' }}
+        if: ${{ env.HAS_VERCEL != '' }}
         env:
-          VERCEL_TOKEN: ${{ secrets.VERCEL_TOKEN }}
-          VERCEL_PROJECT_ID: ${{ vars.VERCEL_PROJECT_ID }}
+          VERCEL_TOKEN: ${{ env.VERCEL_TOKEN }}
+          VERCEL_PROJECT_ID: ${{ env.VERCEL_PROJECT_ID }}
           GIT_BRANCH: preview/pr-${{ github.event.number }}-${{ needs.setup.outputs.branch }}
         run: |
           set -euo pipefail

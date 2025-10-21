@@ -44,6 +44,7 @@ import SplashScreen from "@/pages/common/SplashScreen";
 import OnboardingPage from "@/pages/common/OnboardingPage";
 import ChargingStationsPage from "@/pages/common/ChargingStationsPage";
 import LeaderboardPage from "@/pages/common/LeaderboardPage";
+import PWAInstallPrompt from "@/components/PWAInstallPrompt";
 
 function ProtectedRoute({ 
   component: Component, 
@@ -181,6 +182,7 @@ export default function App() {
         <AuthProvider>
           <TooltipProvider>
             <Toaster />
+            <PWAInstallPrompt />
             <Router />
           </TooltipProvider>
         </AuthProvider>
