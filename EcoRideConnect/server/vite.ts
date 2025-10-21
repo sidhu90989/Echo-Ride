@@ -78,34 +78,17 @@ export function serveStatic(app: Express) {
 
   app.use(express.static(distPath));
 
-  // Fallback: ensure icons are served even if not emitted to dist/public
-  // This maps /icons to the source public/icons as a safety net.
-  try {
-    const sourcePublic = path.resolve(import.meta.dirname, "..", "client", "public");
-    const sourceIcons = path.resolve(sourcePublic, "icons");
-    if (fs.existsSync(sourceIcons)) {
-      // First, explicitly serve icons from dist if present
-      const distIcons = path.resolve(distPath, "icons");
-      app.get("/icons/:file", (req, res, next) => {
-        const file = req.params.file;
-        const tryPaths = [
-          path.resolve(distIcons, file),
-          path.resolve(sourceIcons, file),
-        ];
-        for (const p of tryPaths) {
-          if (fs.existsSync(p)) {
-            return res.sendFile(p);
-          }
-        }
-        // If not found, return 404 to avoid SPA fallback for assets
-        res.status(404).end();
-      });
-      // Also mount the directory in case listing/other assets are requested
-      app.use("/icons", express.static(sourceIcons));
+  // Explicitly serve PWA icons from dist to avoid HTML fallback content-type
+  const distIcons = path.resolve(distPath, "icons");
+  app.get("/icons/:file", (req, res) => {
+    const file = req.params.file;
+    const iconPath = path.resolve(distIcons, file);
+    if (fs.existsSync(iconPath)) {
+      return res.sendFile(iconPath);
     }
-  } catch {
-    // ignore fallback errors
-  }
+    // Not found: return 404 so SPA fallback does not take over for assets
+    res.status(404).end();
+  });
 
   // fall through to index.html if the file doesn't exist
   app.use("*", (_req, res) => {
