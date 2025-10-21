@@ -1291,10 +1291,13 @@ var vite_config_default = defineConfig({
     }
   },
   root: path.resolve(import.meta.dirname, "client"),
-  build: {
-    outDir: path.resolve(import.meta.dirname, "dist/public"),
-    emptyOutDir: true
-  },
+  build: (() => {
+    const isVercel = process.env.VERCEL === "1" || process.env.VERCEL === "true";
+    return {
+      outDir: isVercel ? path.resolve(import.meta.dirname, "client", "dist") : path.resolve(import.meta.dirname, "dist/public"),
+      emptyOutDir: true
+    };
+  })(),
   // Allow overriding base path for different hosting targets.
   // Default keeps GH Pages base in production; Render sets VITE_BASE_PATH="/".
   base: process.env.VITE_BASE_PATH || (process.env.NODE_ENV === "production" ? "/Echo-Ride/" : "/"),
