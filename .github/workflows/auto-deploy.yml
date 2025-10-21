@@ -43,7 +43,16 @@ jobs:
     env:
       RENDER_SERVICE_ID: ${{ secrets.RENDER_SERVICE_ID }}
       RENDER_API_KEY: ${{ secrets.RENDER_API_KEY }}
+      RENDER_DEPLOY_HOOK: ${{ secrets.RENDER_DEPLOY_HOOK }}
     steps:
+      - name: Trigger Render deploy via Deploy Hook (preferred)
+        run: |
+          if [ -n "${RENDER_DEPLOY_HOOK:-}" ]; then
+            echo "Triggering Render via Deploy Hook"
+            curl -fsS -X POST "$RENDER_DEPLOY_HOOK" && exit 0
+          fi
+          echo "No RENDER_DEPLOY_HOOK set; will attempt API deploy if credentials exist."
+
       - name: Trigger Render deploy (skip if secrets missing)
         run: |
           if [ -z "${RENDER_SERVICE_ID:-}" ] || [ -z "${RENDER_API_KEY:-}" ]; then
