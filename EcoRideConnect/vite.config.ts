@@ -9,12 +9,19 @@ export default defineConfig({
     react(),
     VitePWA({
       registerType: 'autoUpdate',
+      includeAssets: [
+        'icons/icon-192x192.png',
+        'icons/icon-512x512.png',
+      ],
       manifest: {
         name: 'EcoRide Connect',
         short_name: 'EcoRide',
         description: 'Eco-friendly ridesharing platform',
         theme_color: '#00A86B',
         background_color: '#ffffff',
+        start_url: '/',
+        scope: '/',
+        display: 'standalone',
         icons: [
           { src: '/icons/icon-192x192.png', sizes: '192x192', type: 'image/png' },
           { src: '/icons/icon-512x512.png', sizes: '512x512', type: 'image/png' },
