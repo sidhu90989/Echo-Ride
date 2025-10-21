@@ -296,6 +296,26 @@ export async function registerRoutes(app: Express): Promise<Server> {
         co2Saved: co2Saved.toString(),
         ecoPointsEarned: ecoPoints,
       });
+      // Broadcast a simple notification to all clients (e.g., drivers)
+      try {
+        const wssLocal: any = (req.app as any).locals?.wss;
+        if (wssLocal) {
+          wssLocal.clients.forEach((client: any) => {
+            if (client.readyState === WebSocket.OPEN) {
+              client.send(JSON.stringify({
+                type: 'ride_booked',
+                rideId: ride.id,
+                pickupLat,
+                pickupLng,
+                dropoffLat,
+                dropoffLng,
+                vehicleType,
+                at: Date.now(),
+              }));
+            }
+          });
+        }
+      } catch {}
 
       res.json(ride);
     } catch (error: any) {
@@ -349,6 +369,22 @@ export async function registerRoutes(app: Express): Promise<Server> {
         status: 'accepted',
         acceptedAt: new Date(),
       });
+      // Broadcast acceptance to all clients
+      try {
+        const wssLocal: any = (req.app as any).locals?.wss;
+        if (wssLocal) {
+          wssLocal.clients.forEach((client: any) => {
+            if (client.readyState === WebSocket.OPEN) {
+              client.send(JSON.stringify({
+                type: 'ride_accepted',
+                rideId: updatedRide.id,
+                driverId: user.id,
+                at: Date.now(),
+              }));
+            }
+          });
+        }
+      } catch {}
 
       res.json(updatedRide);
     } catch (error: any) {
@@ -550,6 +586,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
   // WebSocket server for real-time updates
   const wss = new WebSocketServer({ server: httpServer, path: '/ws' });
+  (app as any).locals.wss = wss;
 
   wss.on('connection', (ws: WebSocket) => {
     console.log('Client connected to WebSocket');
