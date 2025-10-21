@@ -58,7 +58,9 @@ jobs:
     runs-on: ubuntu-latest
     env:
       VERCEL_TOKEN: ${{ secrets.VERCEL_TOKEN }}
-      VERCEL_PROJECT_ID: ${{ secrets.VERCEL_PROJECT_ID }}
+      # Prefer repository variable for non-secret ID
+      VERCEL_PROJECT_ID: ${{ vars.VERCEL_PROJECT_ID }}
+      HAS_VERCEL: ${{ secrets.VERCEL_TOKEN != '' && 'true' || '' }}
     steps:
       - name: Checkout
         uses: actions/checkout@v4
@@ -67,16 +69,21 @@ jobs:
         run: npm i -g vercel
 
       - name: Build client (for Vercel)
-        if: ${{ env.VERCEL_TOKEN != '' && env.VERCEL_PROJECT_ID != '' }}
-        working-directory: EcoRideConnect/client
+        if: ${{ env.HAS_VERCEL != '' }}
+        working-directory: EcoRideConnect
         run: |
           npm ci
           # VERCEL=1 ensures our Vite outDir targets client/dist
           VERCEL=1 npm run build
 
       - name: Deploy frontend to Vercel (if configured)
-        if: ${{ env.VERCEL_TOKEN != '' && env.VERCEL_PROJECT_ID != '' }}
-        working-directory: EcoRideConnect/client
+        if: ${{ env.HAS_VERCEL != '' }}
+        working-directory: EcoRideConnect
+        env:
+          DEFAULT_PROJECT_ID: prj_eYvqk3ED2nSMx7CgskpTlNqQmzyL
         run: |
-          # Use Vercel CLI to redeploy the client (dist auto-detected)
-          npx vercel --prod --token "$VERCEL_TOKEN" --confirm --project "$VERCEL_PROJECT_ID"
+          # Use repo variable if present, else fallback to provided ID
+          PROJECT_ID="${VERCEL_PROJECT_ID:-$DEFAULT_PROJECT_ID}"
+          echo "Using Vercel Project: $PROJECT_ID"
+          # Deploy the built static assets in client/dist directly
+          npx vercel deploy client/dist --prod --token "$VERCEL_TOKEN" --confirm --project "$PROJECT_ID"
