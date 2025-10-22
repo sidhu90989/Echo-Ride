@@ -1,12 +1,16 @@
-import { useState } from "react";
+import { useRef, useState } from "react";
 import { useAuth } from "@/contexts/AuthContext";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
 import { useToast } from "@/hooks/use-toast";
-import { Leaf } from "lucide-react";
+import { Leaf, Smartphone } from "lucide-react";
 import { useLocation } from "wouter";
 import { apiRequest } from "@/lib/queryClient";
-import { signInWithGoogle } from "@/lib/firebase";
+import { signInWithGoogle, ensureRecaptcha, signInWithPhoneNumber, confirmOTP } from "@/lib/firebase";
+import OTPInput from "@/components/OTPInput";
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
 
 export default function LoginPage() {
   const [, setLocation] = useLocation();
@@ -14,6 +18,14 @@ export default function LoginPage() {
   const { toast } = useToast();
   const [role, setRole] = useState<"rider" | "driver" | "admin">("rider");
   const [verifying, setVerifying] = useState(false);
+  const [phoneModalOpen, setPhoneModalOpen] = useState(false);
+  const [roleModalOpen, setRoleModalOpen] = useState(false);
+  const [selectedRole, setSelectedRole] = useState<"rider" | "driver" | "admin">("rider");
+  const [phone, setPhone] = useState("");
+  const [otpStage, setOtpStage] = useState<"phone" | "otp">("phone");
+  const [sending, setSending] = useState(false);
+  const [otp, setOtp] = useState("");
+  const confirmationRef = useRef<import("firebase/auth").ConfirmationResult | null>(null);
 
   const signInWithGoogleFlow = async () => {
     try {
@@ -21,15 +33,10 @@ export default function LoginPage() {
       const cred = await signInWithGoogle();
       const email = cred.user.email || `${role}@example.com`;
       const displayName = cred.user.displayName || `${role.charAt(0).toUpperCase() + role.slice(1)} User`;
-      // Create session + profile in SIMPLE_AUTH via our backend
-      await apiRequest("POST", "/api/auth/login", { email, name: displayName, role });
-      const res = await apiRequest("POST", "/api/auth/complete-profile", { name: displayName, phone: "", role });
-      const userData = await res.json();
-      setUser(userData);
-      toast({ title: "Welcome to EcoRide!", description: `Signed in as ${email}` });
-      if (role === "admin") setLocation("/admin");
-      else if (role === "driver") setLocation("/driver");
-      else setLocation("/rider");
+      // Prompt for role selection after successful Google auth
+      setSelectedRole(role);
+      (window as any)._pendingGoogle = { email, displayName };
+      setRoleModalOpen(true);
     } catch (e: any) {
       toast({ title: "Google sign-in failed", description: e.message || String(e), variant: "destructive" });
     } finally {
@@ -37,7 +44,71 @@ export default function LoginPage() {
     }
   };
 
+  const completeLoginWithRole = async () => {
+    const pending = (window as any)._pendingGoogle as { email: string; displayName: string } | undefined;
+    if (!pending) return setRoleModalOpen(false);
+    const { email, displayName } = pending;
+    try {
+      const res1 = await apiRequest("POST", "/api/auth/login", { email, name: displayName, role: selectedRole });
+      if (!res1.ok) throw new Error("Failed to establish session");
+      const res2 = await apiRequest("POST", "/api/auth/complete-profile", { name: displayName, phone: "", role: selectedRole });
+      const userData = await res2.json();
+      setUser(userData);
+      toast({ title: "Welcome to EcoRide!", description: `Signed in as ${email}` });
+      if (selectedRole === "admin") setLocation("/admin");
+      else if (selectedRole === "driver") setLocation("/driver");
+      else setLocation("/rider");
+    } catch (e: any) {
+      toast({ title: "Login failed", description: e.message || String(e), variant: "destructive" });
+    } finally {
+      setRoleModalOpen(false);
+      (window as any)._pendingGoogle = undefined;
+    }
+  };
+
+  const startPhoneLogin = () => {
+    try { ensureRecaptcha(); } catch {}
+    setPhoneModalOpen(true);
+    setOtpStage("phone");
+    setOtp("");
+  };
+
+  const sendOTP = async () => {
+    const normalized = phone.replace(/\s/g, "");
+    if (!/^\+?\d{10,15}$/.test(normalized)) {
+      toast({ title: "Invalid phone number", description: "Please enter a valid phone number.", variant: "destructive" });
+      return;
+    }
+    try {
+      setSending(true);
+      confirmationRef.current = await signInWithPhoneNumber(normalized);
+      setOtpStage("otp");
+      toast({ title: "OTP sent", description: `We've sent a code to ${phone}` });
+    } catch (e: any) {
+      toast({ title: "Failed to send OTP", description: e.message || String(e), variant: "destructive" });
+    } finally {
+      setSending(false);
+    }
+  };
+
+  const verifyOTP = async () => {
+    if (!confirmationRef.current) return;
+    try {
+      setVerifying(true);
+      const cred = await confirmOTP(confirmationRef.current, otp);
+      const pseudoName = `User ${phone.slice(-4)}`;
+      // After phone auth, prompt role selection
+      (window as any)._pendingGoogle = { email: `${phone.replace(/\D/g, "")}@ecoride.local`, displayName: pseudoName };
+      setRoleModalOpen(true);
+    } catch (e: any) {
+      toast({ title: "OTP verification failed", description: e.message || String(e), variant: "destructive" });
+    } finally {
+      setVerifying(false);
+    }
+  };
+
   return (
+    <>
     <div className="min-h-screen flex flex-col items-center justify-center bg-gradient-to-b from-[#1C1C1C] to-black p-4 text-white">
       <div className="w-full max-w-md space-y-8">
         <div className="text-center space-y-4">
@@ -47,42 +118,29 @@ export default function LoginPage() {
             </div>
             <h1 className="font-serif text-4xl font-bold">EcoRide</h1>
           </div>
-          <p className="text-white/70 text-lg">
-            Sign in with your phone to continue
-          </p>
+          <p className="text-white/70 text-lg">Eco-friendly ride sharing</p>
         </div>
 
         <Card className="p-6 rounded-2xl bg-white text-black">
           <div className="space-y-6">
-            {/* Role selection */}
-            <div className="grid grid-cols-3 gap-2">
-              {([
-                { key: "rider", label: "Rider 🚗" },
-                { key: "driver", label: "Driver 🚙" },
-                { key: "admin", label: "Admin ⚙️" },
-              ] as const).map((r) => (
-                <button
-                  key={r.key}
-                  className={`py-2 rounded-lg text-sm border transition ${
-                    role === r.key ? "border-emerald-500 bg-emerald-50" : "border-gray-200 bg-white"
-                  }`}
-                  onClick={() => setRole(r.key)}
-                >
-                  {r.label}
-                </button>
-              ))}
+            {/* Google primary */}
+            <div className="space-y-3">
+              <div className="text-sm text-gray-600">Sign in with your Google account</div>
+              <Button className="w-full bg-emerald-600 hover:bg-emerald-700" size="lg" onClick={signInWithGoogleFlow} disabled={verifying}>
+                {verifying ? "Signing in..." : "Continue with Google"}
+              </Button>
+              <div className="text-xs text-gray-500">We’ll ask for your role after login.</div>
             </div>
 
-            {/* Google sign-in only */}
-            {
-              <div className="space-y-3">
-                <div className="text-sm text-gray-600">Sign in with your Google account</div>
-                <Button className="w-full" size="lg" onClick={signInWithGoogleFlow} disabled={verifying}>
-                  {verifying ? "Signing in..." : "Continue with Google"}
-                </Button>
-                <div className="text-xs text-gray-500">We’ll link your Google email to your {role} profile.</div>
-              </div>
-            }
+            {/* Phone secondary */}
+            <div className="space-y-3">
+              <div className="text-sm text-gray-600">or</div>
+              <Button variant="outline" className="w-full" size="lg" onClick={startPhoneLogin}>
+                <Smartphone className="h-4 w-4 mr-2" />
+                Continue with Phone
+              </Button>
+              <div id="recaptcha-container" />
+            </div>
           </div>
         </Card>
 
@@ -91,5 +149,63 @@ export default function LoginPage() {
         </p>
       </div>
     </div>
+
+    {/* Phone Modal */}
+    <Dialog open={phoneModalOpen} onOpenChange={setPhoneModalOpen}>
+      <DialogContent className="sm:max-w-md">
+        <DialogHeader>
+          <DialogTitle>Continue with Phone</DialogTitle>
+        </DialogHeader>
+        {otpStage === "phone" && (
+          <div className="space-y-4">
+            <Label htmlFor="phone" className="text-sm">Phone number</Label>
+            <div className="flex items-center gap-2">
+              <div className="px-3 py-2 rounded-lg bg-gray-50 border text-sm">+91</div>
+              <Input id="phone" placeholder="Enter 10-digit number" value={phone.replace(/^\+91\s?/, "+91 ")} onChange={(e) => setPhone(e.target.value)} inputMode="tel" />
+            </div>
+            <DialogFooter>
+              <Button onClick={sendOTP} disabled={sending} className="w-full">
+                {sending ? "Sending..." : "Send OTP"}
+              </Button>
+            </DialogFooter>
+          </div>
+        )}
+        {otpStage === "otp" && (
+          <div className="space-y-4">
+            <div className="text-sm text-gray-600 text-center">Enter the 6-digit code sent to {phone}</div>
+            <OTPInput length={6} onComplete={(code) => setOtp(code)} />
+            <DialogFooter>
+              <Button onClick={verifyOTP} disabled={otp.length !== 6 || verifying} className="w-full">
+                {verifying ? "Verifying..." : "Verify OTP"}
+              </Button>
+            </DialogFooter>
+          </div>
+        )}
+      </DialogContent>
+  </Dialog>
+
+    {/* Role Modal */}
+    <Dialog open={roleModalOpen} onOpenChange={setRoleModalOpen}>
+      <DialogContent className="sm:max-w-md">
+        <DialogHeader>
+          <DialogTitle>Select your role</DialogTitle>
+        </DialogHeader>
+        <div className="grid grid-cols-3 gap-2">
+          {([
+            { key: "rider", label: "Rider 🚗" },
+            { key: "driver", label: "Driver 🚙" },
+            { key: "admin", label: "Admin ⚙️" },
+          ] as const).map((r) => (
+            <button key={r.key} className={`py-2 rounded-lg text-sm border transition ${selectedRole === r.key ? "border-emerald-500 bg-emerald-50" : "border-gray-200 bg-white"}`} onClick={() => setSelectedRole(r.key)}>
+              {r.label}
+            </button>
+          ))}
+        </div>
+        <DialogFooter>
+          <Button onClick={completeLoginWithRole} className="w-full">Continue</Button>
+        </DialogFooter>
+      </DialogContent>
+    </Dialog>
+    </>
   );
 }
