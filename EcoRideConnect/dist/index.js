@@ -967,6 +967,40 @@ async function initiateRideMatching(app2, rideId, pickupLat, pickupLng, dropoffL
   }, 3e4);
 }
 
+// server/services/emailOtpService.ts
+var store = /* @__PURE__ */ new Map();
+function generateCode() {
+  return Math.floor(1e5 + Math.random() * 9e5).toString();
+}
+function requestEmailOtp(emailRaw, ttlMs = 5 * 60 * 1e3) {
+  const email = (emailRaw || "").trim().toLowerCase();
+  if (!email || !/^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(email)) {
+    throw new Error("Invalid email");
+  }
+  const code = generateCode();
+  const expiresAt = Date.now() + ttlMs;
+  store.set(email, { code, expiresAt, attempts: 0 });
+  console.log(`[email-otp] OTP for ${email}: ${code} (expires in ${Math.round(ttlMs / 1e3)}s)`);
+  return { success: true, debugCode: process.env.NODE_ENV !== "production" ? code : void 0 };
+}
+function verifyEmailOtp(emailRaw, code) {
+  const email = (emailRaw || "").trim().toLowerCase();
+  const rec = store.get(email);
+  if (!rec) return false;
+  rec.attempts += 1;
+  if (rec.attempts > 5) {
+    store.delete(email);
+    return false;
+  }
+  if (Date.now() > rec.expiresAt) {
+    store.delete(email);
+    return false;
+  }
+  if (rec.code !== String(code).trim()) return false;
+  store.delete(email);
+  return true;
+}
+
 // server/routes.ts
 config3();
 var SIMPLE_AUTH2 = process.env.SIMPLE_AUTH === "true";
@@ -1053,6 +1087,34 @@ async function registerRoutes(app2) {
   if (SIMPLE_AUTH2 || process.env.ALLOW_SIMPLE_AUTH_ROUTES === "true") {
     console.log(`[auth] registering simple-auth routes (SIMPLE_AUTH=${SIMPLE_AUTH2}, ALLOW_SIMPLE_AUTH_ROUTES=${process.env.ALLOW_SIMPLE_AUTH_ROUTES})`);
     registerSimpleAuth(app2);
+    app2.post("/api/auth/email-otp/request", (req, res) => {
+      try {
+        const { email } = req.body || {};
+        const result = requestEmailOtp(email);
+        res.json({ success: true, debugCode: result.debugCode });
+      } catch (e) {
+        res.status(400).json({ error: e?.message || "Invalid email" });
+      }
+    });
+    app2.post("/api/auth/email-otp/verify", (req, res) => {
+      try {
+        const { email, otp, name, role } = req.body || {};
+        if (!email || !otp) return res.status(400).json({ error: "email and otp are required" });
+        const ok = verifyEmailOtp(email, otp);
+        if (!ok) return res.status(401).json({ error: "Invalid or expired OTP" });
+        const safeName = name && String(name) || email.split("@")[0] + " User";
+        const safeRole = role === "driver" || role === "admin" ? role : "rider";
+        req.session.user = {
+          firebaseUid: `local-${String(email).toLowerCase()}`,
+          email,
+          name: safeName,
+          role: safeRole
+        };
+        res.json({ success: true });
+      } catch (e) {
+        res.status(500).json({ error: e?.message || "Internal error" });
+      }
+    });
   }
   const verifyHandler = async (req, res) => {
     try {

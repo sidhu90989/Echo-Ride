@@ -8,6 +8,7 @@ import {
   ConfirmationResult,
   onAuthStateChanged as fbOnAuthStateChanged,
   signOut as fbSignOut,
+  signInWithPopup,
 } from "firebase/auth";
 
 let app: FirebaseApp | undefined;
@@ -31,6 +32,12 @@ let recaptcha: RecaptchaVerifier | undefined;
   app = initializeApp(firebaseConfig);
   auth = getAuth(app);
   googleProvider = new GoogleAuthProvider();
+  // Configure common Google provider options
+  try {
+    googleProvider.addScope('email');
+    googleProvider.addScope('profile');
+    googleProvider.setCustomParameters({ prompt: 'select_account' });
+  } catch {}
 })();
 
 export { app, auth, googleProvider };
@@ -46,7 +53,10 @@ function mapFirebaseError(e: any): string {
 }
 
 // Ensure recaptcha verifier (invisible)
-export function ensureRecaptcha(containerId = "recaptcha-container") {
+export function ensureRecaptcha(
+  containerId = "recaptcha-container",
+  options?: { size?: 'invisible' | 'normal' | 'compact'; theme?: 'light' | 'dark' }
+) {
   if (!auth) throw new Error("Firebase auth not initialized");
   if (recaptcha) return recaptcha;
   const container = document.getElementById(containerId) || (() => {
@@ -57,17 +67,44 @@ export function ensureRecaptcha(containerId = "recaptcha-container") {
     document.body.appendChild(div);
     return div;
   })();
-  recaptcha = new RecaptchaVerifier(auth, container, { size: "invisible" });
+  recaptcha = new RecaptchaVerifier(auth, container, { size: options?.size || "invisible", theme: options?.theme });
   return recaptcha;
+}
+
+export function refreshRecaptcha(
+  containerId = "recaptcha-container",
+  options?: { size?: 'invisible' | 'normal' | 'compact'; theme?: 'light' | 'dark' }
+) {
+  try {
+    if (recaptcha) {
+      // Clear existing verifier and recreate
+      recaptcha.clear();
+      recaptcha = undefined;
+    }
+  } catch {}
+  return ensureRecaptcha(containerId, options);
 }
 
 export async function signInWithPhoneNumber(phoneNumber: string): Promise<ConfirmationResult> {
   if (!auth) throw new Error("Firebase auth not initialized");
-  const verifier = ensureRecaptcha();
-  try {
-    return await fbSignInWithPhoneNumber(auth, phoneNumber, verifier);
-  } catch (e) {
-    throw new Error(mapFirebaseError(e));
+  let attempt = 0;
+  while (true) {
+    // Try visible captcha first to reduce invisible threshold/abuse detection issues
+    const verifier = attempt === 0
+      ? ensureRecaptcha("recaptcha-container", { size: 'normal', theme: 'light' })
+      : refreshRecaptcha("recaptcha-container", { size: 'normal', theme: 'light' });
+    try {
+      return await fbSignInWithPhoneNumber(auth, phoneNumber, verifier);
+    } catch (e: any) {
+      const msg = e?.message || "";
+      // Backoff and retry limited times on rate limiting
+      if (msg.includes("auth/too-many-requests") && attempt < 2) {
+        attempt++;
+        await new Promise((r) => setTimeout(r, 1000 * attempt));
+        continue;
+      }
+      throw new Error(mapFirebaseError(e));
+    }
   }
 }
 
@@ -87,4 +124,9 @@ export async function signOut() {
 export function onAuthStateChanged(cb: Parameters<typeof fbOnAuthStateChanged>[1]) {
   if (!auth) return () => {};
   return fbOnAuthStateChanged(auth, cb);
+}
+
+export async function signInWithGoogle() {
+  if (!auth || !googleProvider) throw new Error("Firebase auth not initialized");
+  return await signInWithPopup(auth, googleProvider);
 }

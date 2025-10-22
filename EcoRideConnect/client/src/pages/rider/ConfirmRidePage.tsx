@@ -46,6 +46,8 @@ export default function ConfirmRidePage() {
   const [paymentMethod, setPaymentMethod] = useState<string>("upi");
   const [searching, setSearching] = useState(false);
   const [searchProgress, setSearchProgress] = useState(0);
+  const [vehicleType, setVehicleType] = useState<"e_rickshaw" | "e_scooter" | "cng_car">("e_rickshaw");
+  const [searchPhase, setSearchPhase] = useState<{ phase: "initial" | "expanded"; radiusKm: number } | null>(null);
   const [rideId, setRideId] = useState<string>("");
 
   // Mock ride data - in real app, this would come from route params
@@ -95,7 +97,7 @@ export default function ConfirmRidePage() {
     fare: typeof d.fare === "number" ? d.fare : fareFor(d.vehicleType),
   }));
 
-  // Listen for ride acceptance/timeout over WebSocket
+  // Listen for ride acceptance/timeout and matching updates over WebSocket
   useAppWebSocket((msg) => {
     if (!rideId) return;
     if (msg.type === "ride_accepted" && msg.rideId === rideId) {
@@ -108,13 +110,14 @@ export default function ConfirmRidePage() {
       setRideId("");
       toast({ title: "No drivers available", description: "Please try again in a moment.", variant: "destructive" });
     }
+    if (msg.type === "matching_update" && msg.rideId === rideId) {
+      const r = Number(msg.radiusKm) || (msg.phase === "expanded" ? 7 : 5);
+      setSearchPhase({ phase: msg.phase, radiusKm: r });
+    }
   });
 
   const handleConfirmRide = async () => {
-    // For now, require a selection to infer vehicle type; could default to e_rickshaw otherwise
-    const vehicleType =
-      availableDrivers.find((d) => d.id === selectedDriver)?.vehicleType || "e_rickshaw";
-
+    // Use selected vehicle type; driver selection is optional now
     setSearching(true);
     setSearchProgress(0);
     try {
@@ -164,7 +167,9 @@ export default function ConfirmRidePage() {
             <div className="space-y-2">
               <h3 className="font-serif text-xl font-semibold">Finding your driver...</h3>
               <p className="text-sm text-muted-foreground">
-                Connecting you with the best available driver
+                {searchPhase
+                  ? `Searching within ${searchPhase.radiusKm} km (${searchPhase.phase === "initial" ? "initial" : "expanded"} radius)`
+                  : "Connecting you with the best available driver"}
               </p>
             </div>
             <div className="w-full bg-muted rounded-full h-2">
@@ -225,6 +230,28 @@ export default function ConfirmRidePage() {
         </div>
 
         <div className="p-4 space-y-6">
+          {/* Vehicle Type Selector */}
+          <Card className="p-4">
+            <h2 className="font-serif text-lg font-semibold mb-3">Select Vehicle</h2>
+            <div className="grid grid-cols-3 gap-2">
+              {([
+                { key: "e_rickshaw", label: "Auto" },
+                { key: "e_scooter", label: "Bike" },
+                { key: "cng_car", label: "Car" },
+              ] as const).map((opt) => (
+                <button
+                  key={opt.key}
+                  className={`py-2 rounded-lg border text-sm ${
+                    vehicleType === opt.key ? "border-primary bg-primary/10" : "border-muted bg-background"
+                  }`}
+                  onClick={() => setVehicleType(opt.key)}
+                >
+                  {opt.label}
+                </button>
+              ))}
+            </div>
+          </Card>
+
           {/* Route Details */}
           <Card className="p-4">
             <div className="space-y-3">

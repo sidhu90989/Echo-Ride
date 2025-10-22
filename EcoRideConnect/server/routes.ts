@@ -12,6 +12,7 @@ import nameApi from "./integrations/nameApi";
 import { registerDriverSocket, unregisterSocket, setDriverOnline, getDriverSocket } from "./presence";
 import { findNearestDrivers } from "./services/driverMatchingService";
 import { initiateRideMatching } from "./services/rideMatchingService";
+import { requestEmailOtp, verifyEmailOtp } from "./services/emailOtpService";
 
 // Flags
 const SIMPLE_AUTH = process.env.SIMPLE_AUTH === "true";
@@ -128,6 +129,35 @@ export async function registerRoutes(app: Express): Promise<Server> {
     // eslint-disable-next-line no-console
     console.log(`[auth] registering simple-auth routes (SIMPLE_AUTH=${SIMPLE_AUTH}, ALLOW_SIMPLE_AUTH_ROUTES=${process.env.ALLOW_SIMPLE_AUTH_ROUTES})`);
     registerSimpleAuth(app);
+    // Email OTP routes for development/simple auth
+    app.post('/api/auth/email-otp/request', (req: any, res) => {
+      try {
+        const { email } = req.body || {};
+        const result = requestEmailOtp(email);
+        res.json({ success: true, debugCode: result.debugCode });
+      } catch (e: any) {
+        res.status(400).json({ error: e?.message || 'Invalid email' });
+      }
+    });
+    app.post('/api/auth/email-otp/verify', (req: any, res) => {
+      try {
+        const { email, otp, name, role } = req.body || {};
+        if (!email || !otp) return res.status(400).json({ error: 'email and otp are required' });
+        const ok = verifyEmailOtp(email, otp);
+        if (!ok) return res.status(401).json({ error: 'Invalid or expired OTP' });
+        const safeName = (name && String(name)) || (email.split('@')[0] + ' User');
+        const safeRole = (role === 'driver' || role === 'admin') ? role : 'rider';
+        req.session.user = {
+          firebaseUid: `local-${String(email).toLowerCase()}`,
+          email,
+          name: safeName,
+          role: safeRole,
+        };
+        res.json({ success: true });
+      } catch (e: any) {
+        res.status(500).json({ error: e?.message || 'Internal error' });
+      }
+    });
   }
   // Authentication routes
   // Support both GET and POST for verify for flexibility
