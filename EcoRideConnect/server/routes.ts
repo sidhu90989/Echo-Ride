@@ -29,14 +29,18 @@ if (!SIMPLE_AUTH) {
   }
 }
 
-// Initialize Stripe only if not SIMPLE_AUTH
-const stripe: Stripe | null = (() => {
-  if (SIMPLE_AUTH) return null;
-  if (!process.env.STRIPE_SECRET_KEY) {
-    throw new Error('Missing required Stripe secret: STRIPE_SECRET_KEY');
+// Initialize Stripe only if not SIMPLE_AUTH. Do not crash if key is missing;
+// disable payments instead and let the route handle it gracefully.
+let stripe: Stripe | null = null;
+if (!SIMPLE_AUTH) {
+  const key = process.env.STRIPE_SECRET_KEY;
+  if (key) {
+    stripe = new Stripe(key);
+  } else {
+    // eslint-disable-next-line no-console
+    console.warn('[payments] Stripe disabled: STRIPE_SECRET_KEY not set. Payment route will return 503 in production or mock in development.');
   }
-  return new Stripe(process.env.STRIPE_SECRET_KEY);
-})();
+}
 
 // Helper to verify Firebase token
 async function verifyFirebaseToken(req: any, res: any, next: any) {
@@ -604,8 +608,12 @@ export async function registerRoutes(app: Express): Promise<Server> {
     try {
       const { amount } = req.body;
       if (!stripe) {
-        // Mock response for SIMPLE_AUTH/dev mode
-        return res.json({ clientSecret: `mock_${Math.round(amount * 100)}` });
+        // If payments are disabled, return a helpful response
+        if (process.env.NODE_ENV !== 'production') {
+          // Mock response for local/dev
+          return res.json({ clientSecret: `mock_${Math.round(amount * 100)}` });
+        }
+        return res.status(503).json({ error: 'Payments unavailable: Stripe is not configured' });
       }
       const paymentIntent = await stripe.paymentIntents.create({
         amount: Math.round(amount * 100),
