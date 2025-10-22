@@ -21,6 +21,7 @@ export default function LoginPage() {
   const [otpStage, setOtpStage] = useState<"phone" | "otp">("phone");
   const [sending, setSending] = useState(false);
   const [verifying, setVerifying] = useState(false);
+  const [otp, setOtp] = useState("");
   const confirmationRef = useRef<import("firebase/auth").ConfirmationResult | null>(null);
 
   // Ensure invisible recaptcha container exists
@@ -135,7 +136,16 @@ export default function LoginPage() {
             {otpStage === "otp" && (
               <div className="space-y-4">
                 <div className="text-center text-sm text-gray-600">Enter the 6-digit code sent to {phone}</div>
-                <OTPInput length={6} onComplete={verifyOTP} />
+                <OTPInput length={6} onComplete={(code) => setOtp(code)} />
+                <Button
+                  className="w-full"
+                  size="lg"
+                  onClick={() => verifyOTP(otp)}
+                  disabled={otp.length !== 6 || verifying}
+                  data-testid="button-verify-otp"
+                >
+                  {verifying ? "Verifying..." : "Verify OTP"}
+                </Button>
                 <Button variant="outline" className="w-full" onClick={() => setOtpStage("phone")} disabled={verifying}>
                   Change number
                 </Button>
