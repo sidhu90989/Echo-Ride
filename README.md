@@ -20,6 +20,8 @@ https://<your-codespace>-5000.app.github.dev
 
 Health: GET `/api/health` → `{ ok: true, mode: "full" | "simple" }`
 
+Tip: If you don’t have a Google Maps key, set `VITE_USE_MAPLIBRE=true` and optionally `VITE_ORS_API_KEY` for routing.
+
 ## 🧱 Project structure
 ```
 EcoRideConnect/
@@ -79,6 +81,8 @@ COOKIE_SECURE=true
 
 # Maps (optional)
 # VITE_GOOGLE_MAPS_API_KEY=your-google-maps-key
+# VITE_ORS_API_KEY=your-openrouteservice-key
+# VITE_USE_MAPLIBRE=true
 
 # Stripe (optional)
 # STRIPE_SECRET_KEY=sk_live_or_test
