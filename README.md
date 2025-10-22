@@ -33,10 +33,6 @@ EcoRideConnect/
 ## ✅ Step-by-step setup (recommended path)
 
 1) Prerequisites
-- Node.js 20+ and npm 10+
-- A Neon PostgreSQL database (free) or another Postgres
-- Google Cloud project with Maps enabled (optional for maps UI)
-- Optional providers: Stripe, Firebase, Stack Auth
 
 2) Clone and install
 ```bash
@@ -45,10 +41,12 @@ cd Echo-Ride/EcoRideConnect
 npm install
 ```
 
-3) Create .env (choose one of the flows)
+ - Maps: Google Maps via @vis.gl/react-google-maps
+	 - Optional routing via OpenRouteService when `VITE_ORS_API_KEY` is set (no change to basemap)
 
 - Quick demo (memory mode)
-	- No external services required
+ # VITE_GOOGLE_MAPS_API_KEY=your-google-maps-key
+ # VITE_ORS_API_KEY=your-openrouteservice-key  # enables serverless routing for polylines
 	- Use session-based simple auth and in-memory storage
 ```env
 # Quick demo defaults
