@@ -17,9 +17,8 @@ export default function OTPInput({ length = 6, onComplete, disabled, className }
 
   useEffect(() => {
     const code = values.join("");
-    if (code.length === length && !code.includes("")) {
-      onComplete?.(code);
-    }
+    // Trigger onComplete only when all boxes are filled
+    if (values.every((v) => v !== "") && code.length === length) onComplete?.(code);
   }, [values]);
 
   const onChange = (idx: number) => (e: React.ChangeEvent<HTMLInputElement>) => {
