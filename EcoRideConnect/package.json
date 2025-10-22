@@ -83,7 +83,8 @@
     "ws": "^8.18.0",
     "cors": "^2.8.5",
     "zod": "^3.24.2",
-    "zod-validation-error": "^3.4.0"
+    "zod-validation-error": "^3.4.0",
+    "jose": "^5.9.3"
   },
   "devDependencies": {
     "@replit/vite-plugin-cartographer": "^0.3.1",

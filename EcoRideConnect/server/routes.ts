@@ -7,10 +7,15 @@ import { WebSocketServer, WebSocket } from "ws";
 import { storage } from "./storage";
 import Stripe from "stripe";
 import admin from "firebase-admin";
+import { createRemoteJWKSet, jwtVerify } from "jose";
 import nameApi from "./integrations/nameApi";
 
 // Flags
 const SIMPLE_AUTH = process.env.SIMPLE_AUTH === "true";
+const STACK_PROJECT_ID = process.env.STACK_PROJECT_ID || process.env.VITE_STACK_PROJECT_ID;
+const STACK_JWKS_URL = process.env.STACK_JWKS_URL || (STACK_PROJECT_ID
+  ? `https://api.stack-auth.com/api/v1/projects/${STACK_PROJECT_ID}/.well-known/jwks.json`
+  : undefined);
 console.log("🔧 Environment check:", {
   SIMPLE_AUTH,
   STRIPE_SECRET_KEY: process.env.STRIPE_SECRET_KEY ? "SET" : "NOT SET",
@@ -54,12 +59,26 @@ async function verifyFirebaseToken(req: any, res: any, next: any) {
     return res.status(401).json({ error: 'Unauthorized' });
   }
   const token = authHeader.substring(7);
+  // First try Stack Auth (if configured). If that fails or not configured, try Firebase.
+  if (STACK_JWKS_URL) {
+    try {
+      const JWKS = createRemoteJWKSet(new URL(STACK_JWKS_URL));
+      const { payload } = await jwtVerify(token, JWKS);
+      // Map Stack claims to our expected fields
+      req.firebaseUid = (payload.sub as string) || (payload.user_id as string);
+      req.email = (payload.email as string) || undefined;
+      return next();
+    } catch (e) {
+      // fall through to Firebase verification
+    }
+  }
+
   try {
     const decodedToken = await admin.auth().verifyIdToken(token);
     req.firebaseUid = decodedToken.uid;
     req.email = decodedToken.email;
     next();
-  } catch (error) {
+  } catch (_error) {
     return res.status(401).json({ error: 'Invalid token' });
   }
 }
