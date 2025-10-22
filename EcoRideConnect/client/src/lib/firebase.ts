@@ -16,20 +16,42 @@ let auth: Auth | undefined;
 let googleProvider: GoogleAuthProvider | undefined;
 let recaptcha: RecaptchaVerifier | undefined;
 
-// Always initialize Firebase if env values are present, even in SIMPLE_AUTH mode
+// Initialize Firebase using env vars when present, otherwise fall back to provided credentials
 (() => {
-  const apiKey = import.meta.env.VITE_FIREBASE_API_KEY as string | undefined;
+  const apiKey = (import.meta.env.VITE_FIREBASE_API_KEY as string | undefined) ||
+    // Fallback: user-provided public web apiKey
+    "AIzaSyAZQLOQxbCk7TvlImTFMfW7rgwapH_XYjk";
+
+  // Support either explicit AUTH_DOMAIN or derive from PROJECT_ID
+  const explicitAuthDomain = import.meta.env.VITE_FIREBASE_AUTH_DOMAIN as string | undefined;
   const projectId = import.meta.env.VITE_FIREBASE_PROJECT_ID as string | undefined;
   const appId = import.meta.env.VITE_FIREBASE_APP_ID as string | undefined;
-  if (!apiKey || !projectId || !appId) return;
-  const firebaseConfig = {
+  const storageBucket = import.meta.env.VITE_FIREBASE_STORAGE_BUCKET as string | undefined;
+
+  // If no env auth domain, fall back to user-provided domain
+  const fallbackAuthDomain = "trusty-diorama-475905-c3.firebaseapp.com";
+
+  // Build a minimal config sufficient for Auth; include optional fields if available
+  const firebaseConfig: Record<string, string> = {
     apiKey,
-    authDomain: `${projectId}.firebaseapp.com`,
-    projectId,
-    storageBucket: `${projectId}.firebasestorage.app`,
-    appId,
-  } as const;
-  app = initializeApp(firebaseConfig);
+    ...(explicitAuthDomain
+      ? { authDomain: explicitAuthDomain }
+      : projectId
+      ? { authDomain: `${projectId}.firebaseapp.com` }
+      : { authDomain: fallbackAuthDomain }),
+    ...(projectId ? { projectId } : {}),
+    ...(storageBucket
+      ? { storageBucket }
+      : projectId
+      ? { storageBucket: `${projectId}.firebasestorage.app` }
+      : {}),
+    ...(appId ? { appId } : {}),
+  };
+
+  // Initialize even if only apiKey + authDomain are present (enough for Auth flows)
+  if (!firebaseConfig.apiKey || !firebaseConfig.authDomain) return;
+
+  app = initializeApp(firebaseConfig as any);
   auth = getAuth(app);
   googleProvider = new GoogleAuthProvider();
   // Configure common Google provider options
