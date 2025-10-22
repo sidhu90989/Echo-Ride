@@ -19,7 +19,8 @@ import {
   CheckCircle
 } from "lucide-react";
 import { useLocation, useParams } from "wouter";
-import { RideMap } from "@/components/maps/RideMap";
+import MapComponent from "@/components/MapComponent";
+import { useAvailableDriversNear } from "@/hooks/useAvailableDriversNear";
 import { useToast } from "@/hooks/use-toast";
 import { apiRequest } from "@/lib/queryClient";
 
@@ -53,6 +54,10 @@ export default function ConfirmRidePage() {
     duration: "12 min",
     co2Saved: "1.2 kg"
   };
+
+  const pickup = { lat: 28.6139, lng: 77.2090 };
+  const dropoff = { lat: 28.7041, lng: 77.1025 };
+  const drivers = useAvailableDriversNear(pickup, 900, 15000);
 
   // Load available drivers from API (real data)
   function fareFor(vehicleType: string) {
@@ -168,12 +173,12 @@ export default function ConfirmRidePage() {
       <div className="space-y-6">
         {/* Route Map */}
         <div className="h-64 relative">
-          <RideMap
-            apiKey="mock-api-key"
-            pickup={{ lat: 28.6139, lng: 77.2090 }}
-            dropoff={{ lat: 28.7041, lng: 77.1025 }}
-            rider={{ lat: 28.6139, lng: 77.2090 }}
-            height={256}
+          <MapComponent
+            pickup={pickup}
+            drop={dropoff}
+            drawRoute={true}
+            drivers={drivers}
+            style={{ height: 256 }}
           />
           
           {/* Route Info Overlay */}

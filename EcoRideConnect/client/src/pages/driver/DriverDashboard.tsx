@@ -38,7 +38,8 @@ import {
 import { useToast } from "@/hooks/use-toast";
 import { apiRequest } from "@/lib/queryClient";
 import { useLocation } from "wouter";
-import { RideMap, type LatLng } from "@/components/maps/RideMap";
+import MapComponent from "@/components/MapComponent";
+import type { LatLngLike as LatLng } from "@/utils/mapUtils";
 import type { DriverStats, Ride } from "@/types/api";
 
 export default function DriverDashboard() {
@@ -378,11 +379,12 @@ export default function DriverDashboard() {
           </div>
           <div className="relative bg-muted rounded-lg overflow-hidden" style={{ height: '300px' }}>
             {isAvailable ? (
-              <RideMap
-                apiKey="mock-api-key"
-                pickup={currentLocation || undefined}
-                height={300}
-              />
+              <div style={{ height: 300 }}>
+                <MapComponent
+                  pickup={currentLocation || undefined}
+                  drawRoute={false}
+                />
+              </div>
             ) : (
               <div className="flex items-center justify-center h-full bg-gray-100 dark:bg-gray-800">
                 <div className="text-center space-y-2">

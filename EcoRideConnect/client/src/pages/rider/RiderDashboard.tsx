@@ -36,7 +36,9 @@ import { useToast } from "@/hooks/use-toast";
 import { apiRequest } from "@/lib/queryClient";
 import { ThemeToggle } from "@/components/ThemeToggle";
 import type { RiderStats } from "@/types/api";
-import { RideMap, type LatLng } from "@/components/maps/RideMap";
+import MapComponent from "@/components/MapComponent";
+import type { LatLngLike as LatLng } from "@/utils/mapUtils";
+import { useAvailableDriversNear } from "@/hooks/useAvailableDriversNear";
 
 type VehicleType = "e_rickshaw" | "e_scooter" | "cng_car";
 
@@ -374,12 +376,7 @@ export default function RiderDashboard() {
               </Badge>
             </div>
             <div className="h-80 rounded-lg overflow-hidden">
-              <RideMap
-                apiKey={mapsKey!}
-                rider={riderLoc || { lat: 28.6139, lng: 77.2090 }}
-                autoFit={false}
-                height={320}
-              />
+              <RiderMapBlock center={riderLoc || { lat: 28.6139, lng: 77.2090 }} />
             </div>
           </Card>
         )}
@@ -449,6 +446,19 @@ export default function RiderDashboard() {
           </div>
         </DialogContent>
       </Dialog>
+    </div>
+  );
+}
+
+function RiderMapBlock({ center }: { center: LatLng }) {
+  const drivers = useAvailableDriversNear(center, 900, 15000);
+  return (
+    <div style={{ height: 320 }}>
+      <MapComponent
+        pickup={center}
+        drawRoute={false}
+        drivers={drivers}
+      />
     </div>
   );
 }

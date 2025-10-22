@@ -22,7 +22,7 @@ import {
   X
 } from "lucide-react";
 import { useLocation, useParams } from "wouter";
-import { RideMap } from "@/components/maps/RideMap";
+import MapComponent from "@/components/MapComponent";
 import { useToast } from "@/hooks/use-toast";
 import { apiRequest } from "@/lib/queryClient";
 
@@ -182,13 +182,12 @@ export default function RideTrackingPage() {
       <div className="space-y-4">
         {/* Live Map */}
         <div className="h-80 relative">
-          <RideMap
-            apiKey="mock-api-key"
+          <MapComponent
             pickup={{ lat: 28.6139, lng: 77.2090 }}
-            dropoff={{ lat: 28.7041, lng: 77.1025 }}
-            rider={{ lat: 28.6139, lng: 77.2090 }}
-            driver={driverInfo.currentLocation}
-            height={320}
+            drop={{ lat: 28.7041, lng: 77.1025 }}
+            drawRoute={true}
+            drivers={[{ id: driverInfo.id, lat: driverInfo.currentLocation.lat, lng: driverInfo.currentLocation.lng, vehicle_type: 'E-Rickshaw', is_available: true, name: driverInfo.name, rating: driverInfo.rating }]}
+            style={{ height: 320 }}
           />
           
           {/* Status Overlay */}
