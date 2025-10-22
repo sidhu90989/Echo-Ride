@@ -10,27 +10,28 @@ import {
   signOut as fbSignOut,
 } from "firebase/auth";
 
-const SIMPLE_AUTH = import.meta.env.VITE_SIMPLE_AUTH === 'true';
-
 let app: FirebaseApp | undefined;
 let auth: Auth | undefined;
 let googleProvider: GoogleAuthProvider | undefined;
 let recaptcha: RecaptchaVerifier | undefined;
 
-if (!SIMPLE_AUTH) {
-  // Use env-based config populated in .env (already set to provided values)
+// Always initialize Firebase if env values are present, even in SIMPLE_AUTH mode
+(() => {
+  const apiKey = import.meta.env.VITE_FIREBASE_API_KEY as string | undefined;
+  const projectId = import.meta.env.VITE_FIREBASE_PROJECT_ID as string | undefined;
+  const appId = import.meta.env.VITE_FIREBASE_APP_ID as string | undefined;
+  if (!apiKey || !projectId || !appId) return;
   const firebaseConfig = {
-    apiKey: import.meta.env.VITE_FIREBASE_API_KEY,
-    authDomain: `${import.meta.env.VITE_FIREBASE_PROJECT_ID}.firebaseapp.com`,
-    projectId: import.meta.env.VITE_FIREBASE_PROJECT_ID,
-    storageBucket: `${import.meta.env.VITE_FIREBASE_PROJECT_ID}.firebasestorage.app`,
-    appId: import.meta.env.VITE_FIREBASE_APP_ID,
+    apiKey,
+    authDomain: `${projectId}.firebaseapp.com`,
+    projectId,
+    storageBucket: `${projectId}.firebasestorage.app`,
+    appId,
   } as const;
-
   app = initializeApp(firebaseConfig);
   auth = getAuth(app);
   googleProvider = new GoogleAuthProvider();
-}
+})();
 
 export { app, auth, googleProvider };
 
