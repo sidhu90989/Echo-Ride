@@ -18,7 +18,7 @@ export default function LoginPage() {
   const { toast } = useToast();
   const [role, setRole] = useState<"rider" | "driver" | "admin">("rider");
   const [method, setMethod] = useState<"phone" | "email" | "google">("phone");
-  const [phone, setPhone] = useState("+91");
+  const [phone, setPhone] = useState("");
   const [otpStage, setOtpStage] = useState<"phone" | "otp">("phone");
   const [emailOtpStage, setEmailOtpStage] = useState<"email" | "otp">("email");
   const [email, setEmail] = useState("");
