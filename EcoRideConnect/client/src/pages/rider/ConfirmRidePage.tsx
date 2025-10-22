@@ -23,6 +23,7 @@ import MapComponent from "@/components/MapComponent";
 import { useAvailableDriversNear } from "@/hooks/useAvailableDriversNear";
 import { useToast } from "@/hooks/use-toast";
 import { apiRequest } from "@/lib/queryClient";
+import { useAppWebSocket } from "@/hooks/useAppWebSocket";
 
 interface Driver {
   id: string;
@@ -45,6 +46,7 @@ export default function ConfirmRidePage() {
   const [paymentMethod, setPaymentMethod] = useState<string>("upi");
   const [searching, setSearching] = useState(false);
   const [searchProgress, setSearchProgress] = useState(0);
+  const [rideId, setRideId] = useState<string>("");
 
   // Mock ride data - in real app, this would come from route params
   const rideData = {
@@ -93,32 +95,56 @@ export default function ConfirmRidePage() {
     fare: typeof d.fare === "number" ? d.fare : fareFor(d.vehicleType),
   }));
 
-  const handleConfirmRide = async () => {
-    if (!selectedDriver) {
-      toast({
-        title: "Please select a driver",
-        variant: "destructive"
-      });
-      return;
+  // Listen for ride acceptance/timeout over WebSocket
+  useAppWebSocket((msg) => {
+    if (!rideId) return;
+    if (msg.type === "ride_accepted" && msg.rideId === rideId) {
+      toast({ title: "Driver found!", description: "Connecting you to your driver." });
+      setLocation(`/rider/ride/${rideId}`);
     }
+    if (msg.type === "ride_timeout" && msg.rideId === rideId) {
+      setSearching(false);
+      setSearchProgress(0);
+      setRideId("");
+      toast({ title: "No drivers available", description: "Please try again in a moment.", variant: "destructive" });
+    }
+  });
+
+  const handleConfirmRide = async () => {
+    // For now, require a selection to infer vehicle type; could default to e_rickshaw otherwise
+    const vehicleType =
+      availableDrivers.find((d) => d.id === selectedDriver)?.vehicleType || "e_rickshaw";
 
     setSearching(true);
     setSearchProgress(0);
-
-    // Simulate search progress
-    const interval = setInterval(() => {
-      setSearchProgress(prev => {
-        if (prev >= 100) {
-          clearInterval(interval);
-          // Navigate to tracking page
-          setTimeout(() => {
-            setLocation(`/rider/ride/${selectedDriver}/tracking`);
-          }, 500);
-          return 100;
-        }
-        return prev + 10;
+    try {
+      const res = await apiRequest("POST", "/api/rides", {
+        pickupLocation: rideData.pickup,
+        pickupLat: pickup.lat,
+        pickupLng: pickup.lng,
+        dropoffLocation: rideData.dropoff,
+        dropoffLat: dropoff.lat,
+        dropoffLng: dropoff.lng,
+        vehicleType,
+        femalePrefRequested: false,
       });
-    }, 200);
+      const data = await res.json();
+      if (data?.id) setRideId(data.id);
+    } catch (e: any) {
+      setSearching(false);
+      toast({ title: "Failed to request ride", description: e?.message || String(e), variant: "destructive" });
+      return;
+    }
+
+    // Progress UI ticking while searching
+    const start = Date.now();
+    const total = 30_000; // 30s
+    const interval = setInterval(() => {
+      const elapsed = Date.now() - start;
+      const pct = Math.min(100, Math.round((elapsed / total) * 100));
+      setSearchProgress(pct);
+      if (pct >= 100) clearInterval(interval);
+    }, 300);
   };
 
   if (isLoading) {
@@ -339,10 +365,10 @@ export default function ConfirmRidePage() {
               className="w-full py-6 text-lg font-semibold"
               size="lg"
               onClick={handleConfirmRide}
-              disabled={!selectedDriver}
+              disabled={false}
             >
               <CheckCircle className="w-5 h-5 mr-2" />
-              Confirm Ride - ₹{selectedDriver ? availableDrivers.find(d => d.id === selectedDriver)?.fare : 0}
+              {searching ? "Searching for drivers..." : `Confirm Ride - ₹${selectedDriver ? availableDrivers.find(d => d.id === selectedDriver)?.fare : fareFor("e_rickshaw")}`}
             </Button>
           </div>
         </div>

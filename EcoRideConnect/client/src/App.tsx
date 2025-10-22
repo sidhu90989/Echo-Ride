@@ -6,6 +6,7 @@ import { TooltipProvider } from "@/components/ui/tooltip";
 import { AuthProvider, useAuth } from "@/contexts/AuthContext";
 import { ThemeProvider } from "@/contexts/ThemeContext";
 import { FullPageLoader } from "@/components/LoadingSpinner";
+import ProtectedRoute from "@/components/ProtectedRoute";
 
 // Import API validator for development
 if (import.meta.env.DEV) {
@@ -46,29 +47,7 @@ import ChargingStationsPage from "@/pages/common/ChargingStationsPage";
 import LeaderboardPage from "@/pages/common/LeaderboardPage";
 import PWAInstallPrompt from "@/components/PWAInstallPrompt";
 
-function ProtectedRoute({ 
-  component: Component, 
-  allowedRoles 
-}: { 
-  component: React.ComponentType<any>; 
-  allowedRoles?: string[] 
-}) {
-  const { user, loading } = useAuth();
-
-  if (loading) {
-    return <FullPageLoader />;
-  }
-
-  if (!user) {
-    return <Redirect to="/login" />;
-  }
-
-  if (allowedRoles && !allowedRoles.includes(user.role)) {
-    return <Redirect to={`/${user.role}`} />;
-  }
-
-  return <Component />;
-}
+// Note: using extracted ProtectedRoute component from components/
 
 function Router() {
   const { user, loading } = useAuth();

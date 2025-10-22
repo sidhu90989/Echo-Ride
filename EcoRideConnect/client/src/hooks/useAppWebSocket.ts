@@ -28,7 +28,7 @@ export function useAppWebSocket(onMessage?: (msg: AppWsMessage) => void) {
       url = `${protocol}://${window.location.host}/ws`;
     }
 
-    const ws = new WebSocket(url);
+  const ws = new WebSocket(url);
     wsRef.current = ws;
 
     ws.onopen = () => setConnected(true);
@@ -44,5 +44,16 @@ export function useAppWebSocket(onMessage?: (msg: AppWsMessage) => void) {
     return () => ws.close();
   }, [onMessage]);
 
-  return { connected };
+  const send = (msg: AppWsMessage) => {
+    const ws = wsRef.current;
+    if (!ws || ws.readyState !== WebSocket.OPEN) return false;
+    try {
+      ws.send(JSON.stringify(msg));
+      return true;
+    } catch {
+      return false;
+    }
+  };
+
+  return { connected, send };
 }

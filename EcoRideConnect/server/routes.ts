@@ -9,6 +9,9 @@ import Stripe from "stripe";
 import admin from "firebase-admin";
 import { createRemoteJWKSet, jwtVerify } from "jose";
 import nameApi from "./integrations/nameApi";
+import { registerDriverSocket, unregisterSocket, setDriverOnline, getDriverSocket } from "./presence";
+import { findNearestDrivers } from "./services/driverMatchingService";
+import { initiateRideMatching } from "./services/rideMatchingService";
 
 // Flags
 const SIMPLE_AUTH = process.env.SIMPLE_AUTH === "true";
@@ -313,7 +316,10 @@ export async function registerRoutes(app: Express): Promise<Server> {
         femalePrefRequested,
       } = req.body;
 
-      // Calculate estimated fare and distance
+      const pickLabel = pickupLocation || `Pickup (${Number(pickupLat).toFixed(5)}, ${Number(pickupLng).toFixed(5)})`;
+      const dropLabel = dropoffLocation || `Drop (${Number(dropoffLat).toFixed(5)}, ${Number(dropoffLng).toFixed(5)})`;
+
+      // Calculate simple estimated fare and distance
       const distance = 5.5; // Mock distance in km
       const estimatedFare = vehicleType === 'e_scooter' ? 30 : vehicleType === 'e_rickshaw' ? 45 : 80;
       const co2Saved = distance * 0.12; // Mock CO2 calculation
@@ -321,10 +327,10 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
       const ride = await storage.createRide({
         riderId: user.id,
-        pickupLocation,
+        pickupLocation: pickLabel,
         pickupLat,
         pickupLng,
-        dropoffLocation,
+        dropoffLocation: dropLabel,
         dropoffLat,
         dropoffLng,
         vehicleType,
@@ -335,28 +341,11 @@ export async function registerRoutes(app: Express): Promise<Server> {
         co2Saved: co2Saved.toString(),
         ecoPointsEarned: ecoPoints,
       });
-      // Broadcast a simple notification to all clients (e.g., drivers)
-      try {
-        const wssLocal: any = (req.app as any).locals?.wss;
-        if (wssLocal) {
-          wssLocal.clients.forEach((client: any) => {
-            if (client.readyState === WebSocket.OPEN) {
-              client.send(JSON.stringify({
-                type: 'ride_booked',
-                rideId: ride.id,
-                pickupLat,
-                pickupLng,
-                dropoffLat,
-                dropoffLng,
-                vehicleType,
-                at: Date.now(),
-              }));
-            }
-          });
-        }
-      } catch {}
 
-      res.json(ride);
+      // Kick off intelligent matching with 5km initial radius and 7km expansion
+      initiateRideMatching(req.app, ride.id, Number(pickupLat), Number(pickupLng), Number(dropoffLat), Number(dropoffLng), vehicleType as any, estimatedFare);
+
+      res.status(201).json({ id: ride.id, status: 'searching' });
     } catch (error: any) {
       res.status(500).json({ error: error.message });
     }
@@ -563,12 +552,36 @@ export async function registerRoutes(app: Express): Promise<Server> {
         return res.status(403).json({ error: 'Only drivers can set availability' });
       }
 
-      const { available } = req.body;
-      await storage.updateDriverProfile(user.id, {
-        isAvailable: available,
+      const { available, is_online, current_lat, current_lng } = req.body || {};
+      const online = typeof is_online === 'boolean' ? is_online : !!available;
+      const updated = await storage.updateDriverProfile(user.id, {
+        isAvailable: online,
       });
 
-      res.json({ success: true });
+      const lat = typeof current_lat === 'number' ? current_lat : undefined;
+      const lng = typeof current_lng === 'number' ? current_lng : undefined;
+      const vehicleType = updated.vehicleType as any;
+      const rating = updated.rating ? Number(updated.rating) : undefined;
+      const p = setDriverOnline(user.id, online, lat, lng, vehicleType, rating);
+
+      try {
+        const wssLocal: any = (req.app as any).locals?.wss;
+        if (wssLocal) {
+          const payload = JSON.stringify({
+            type: online ? 'driver_online' : 'driver_offline',
+            driverId: user.id,
+            vehicleType,
+            lat: p.lat,
+            lng: p.lng,
+            at: Date.now(),
+          });
+          wssLocal.clients.forEach((client: any) => {
+            if (client.readyState === WebSocket.OPEN) client.send(payload);
+          });
+        }
+      } catch {}
+
+      res.json({ success: true, profile: updated, presence: p });
     } catch (error: any) {
       res.status(500).json({ error: error.message });
     }
@@ -654,6 +667,12 @@ export async function registerRoutes(app: Express): Promise<Server> {
             }
           });
         }
+        if (data.type === 'iam_driver' && data.userId) {
+          registerDriverSocket(data.userId, ws);
+        }
+        if (data.type === 'driver_online') {
+          setDriverOnline(data.userId, true, data.lat, data.lng, data.vehicleType, data.rating);
+        }
       } catch (error) {
         console.error('WebSocket message error:', error);
       }
@@ -661,6 +680,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
     ws.on('close', () => {
       console.log('Client disconnected from WebSocket');
+      unregisterSocket(ws);
     });
   });
 

@@ -319,7 +319,7 @@ import MemoryStoreFactory from "memorystore";
 // server/routes.ts
 import { config as config3 } from "dotenv";
 import { createServer } from "http";
-import { WebSocketServer, WebSocket } from "ws";
+import { WebSocketServer, WebSocket as WebSocket2 } from "ws";
 
 // server/storage.ts
 init_schema();
@@ -535,6 +535,21 @@ var DatabaseStorage = class {
       vehicleStats
     };
   }
+  async listAvailableDrivers() {
+    const db2 = await getDb();
+    const rows = await db2.select({
+      id: driverProfiles.userId,
+      name: users.name,
+      rating: driverProfiles.rating,
+      vehicleNumber: driverProfiles.vehicleNumber,
+      vehicleType: driverProfiles.vehicleType
+    }).from(driverProfiles).innerJoin(users, eq(driverProfiles.userId, users.id)).where(eq(driverProfiles.isAvailable, true));
+    return rows.map((r) => ({
+      ...r,
+      estimatedArrival: 3,
+      fare: r.vehicleType === "e_scooter" ? 30 : r.vehicleType === "e_rickshaw" ? 45 : 80
+    }));
+  }
 };
 var MemoryStorage = class {
   id = customAlphabet("0123456789abcdefghijklmnopqrstuvwxyz", 10);
@@ -729,12 +744,27 @@ var MemoryStorage = class {
       vehicleStats
     };
   }
+  async listAvailableDrivers() {
+    return this._driverProfiles.filter((d) => d.isAvailable).map((d) => {
+      const u = this._users.find((u2) => u2.id === d.userId);
+      return {
+        id: d.userId,
+        name: u?.name || "Unknown",
+        rating: d.rating,
+        vehicleNumber: d.vehicleNumber,
+        vehicleType: d.vehicleType,
+        estimatedArrival: 3,
+        fare: d.vehicleType === "e_scooter" ? 30 : d.vehicleType === "e_rickshaw" ? 45 : 80
+      };
+    });
+  }
 };
 var storage = StorageSelector.getInstance();
 
 // server/routes.ts
 import Stripe from "stripe";
 import admin from "firebase-admin";
+import { createRemoteJWKSet, jwtVerify } from "jose";
 
 // server/integrations/nameApi.ts
 function getEnv() {
@@ -776,9 +806,172 @@ var nameApi = {
 };
 var nameApi_default = nameApi;
 
+// server/presence.ts
+var drivers = /* @__PURE__ */ new Map();
+var socketToUser = /* @__PURE__ */ new WeakMap();
+function registerDriverSocket(userId, ws2) {
+  const prev = drivers.get(userId) || { userId, isOnline: false, updatedAt: Date.now() };
+  prev.socket = ws2;
+  drivers.set(userId, prev);
+  socketToUser.set(ws2, userId);
+}
+function unregisterSocket(ws2) {
+  const uid = socketToUser.get(ws2);
+  if (!uid) return;
+  const p = drivers.get(uid);
+  if (p && p.socket === ws2) {
+    p.socket = void 0;
+    p.isOnline = false;
+    p.updatedAt = Date.now();
+    drivers.set(uid, p);
+  }
+}
+function setDriverOnline(userId, online, lat, lng, vehicleType, rating) {
+  const cur = drivers.get(userId) || { userId, isOnline: false, updatedAt: Date.now() };
+  cur.isOnline = online;
+  if (lat != null && lng != null) {
+    cur.lat = lat;
+    cur.lng = lng;
+  }
+  if (vehicleType) cur.vehicleType = vehicleType;
+  if (rating != null) cur.rating = rating;
+  cur.updatedAt = Date.now();
+  drivers.set(userId, cur);
+  return cur;
+}
+function getOnlineDriversByVehicle(type) {
+  return Array.from(drivers.values()).filter((d) => d.isOnline && !!d.lat && !!d.lng && d.vehicleType === type);
+}
+function getDriverSocket(userId) {
+  return drivers.get(userId)?.socket;
+}
+
+// server/services/rideMatchingService.ts
+import { WebSocket } from "ws";
+
+// server/utils/location.ts
+function haversineDistanceKm(lat1, lng1, lat2, lng2) {
+  const toRad = (d) => d * Math.PI / 180;
+  const R = 6371;
+  const dLat = toRad(lat2 - lat1);
+  const dLng = toRad(lng2 - lng1);
+  const a = Math.sin(dLat / 2) ** 2 + Math.cos(toRad(lat1)) * Math.cos(toRad(lat2)) * Math.sin(dLng / 2) ** 2;
+  const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
+  return R * c;
+}
+
+// server/services/rideMatchingService.ts
+function comfortForVehicle(v) {
+  switch (v) {
+    case "cng_car":
+      return 1;
+    case "e_rickshaw":
+      return 0.8;
+    case "e_scooter":
+      return 0.6;
+    default:
+      return 0.7;
+  }
+}
+function scoreDriver({ distanceKm, radiusKm, rating, completionRate, comfort }) {
+  const distanceScore = Math.max(0, 1 - distanceKm / Math.max(radiusKm, 1e-3));
+  const ratingScore = Math.min(1, Math.max(0, rating / 5));
+  const completionScore = Math.min(1, Math.max(0, completionRate));
+  const comfortScore = Math.min(1, Math.max(0, comfort));
+  return 0.6 * distanceScore + 0.2 * ratingScore + 0.1 * completionScore + 0.1 * comfortScore;
+}
+async function findTopDrivers(pickupLat, pickupLng, vehicleType, radiusKm) {
+  const online = getOnlineDriversByVehicle(vehicleType);
+  if (!online.length) return [];
+  const avail = await storage.listAvailableDrivers();
+  const byId = new Map(avail.map((d) => [d.id, d]));
+  const profilesArr = await Promise.all(
+    online.map((p) => storage.getDriverProfile(p.userId).catch(() => null))
+  );
+  const profiles = new Map(online.map((p, i) => [p.userId, profilesArr[i]]));
+  const candidates = online.map((p) => {
+    const db2 = byId.get(p.userId);
+    const prof = profiles.get(p.userId) || null;
+    const ratingNum = db2?.rating ? Number(db2.rating) : prof?.rating ? Number(prof.rating) : p.rating ?? 4.5;
+    const totalRides = prof?.totalRides ?? 0;
+    const completionRate = totalRides > 0 ? Math.min(0.99, 0.8 + Math.min(0.19, totalRides / 1e3)) : 0.85;
+    const distanceKm = haversineDistanceKm(pickupLat, pickupLng, p.lat, p.lng);
+    if (distanceKm > radiusKm) return null;
+    const comfort = comfortForVehicle(db2?.vehicleType || prof?.vehicleType || p.vehicleType);
+    const score = scoreDriver({ distanceKm, radiusKm, rating: ratingNum, completionRate, comfort });
+    return {
+      id: p.userId,
+      name: db2?.name || "Driver",
+      rating: isNaN(ratingNum) ? 4.5 : ratingNum,
+      totalRides,
+      completionRate,
+      vehicleType: db2?.vehicleType || prof?.vehicleType || p.vehicleType,
+      lat: p.lat,
+      lng: p.lng,
+      distanceKm,
+      score
+    };
+  }).filter(Boolean);
+  candidates.sort((a, b) => b.score - a.score);
+  return candidates.slice(0, 10);
+}
+async function notifyDrivers(ride, drivers2, maxNotify = 3) {
+  const toNotify = drivers2.slice(0, maxNotify);
+  for (const d of toNotify) {
+    const sock = getDriverSocket(d.id);
+    if (sock && sock.readyState === WebSocket.OPEN) {
+      sock.send(
+        JSON.stringify({
+          type: "ride_request",
+          rideId: ride.id,
+          pickupLat: ride.pickupLat,
+          pickupLng: ride.pickupLng,
+          dropoffLat: ride.dropoffLat,
+          dropoffLng: ride.dropoffLng,
+          vehicleType: ride.vehicleType,
+          estimatedFare: ride.estimatedFare,
+          distanceKm: d.distanceKm,
+          at: Date.now()
+        })
+      );
+    }
+  }
+  return toNotify.map((d) => d.id);
+}
+async function initiateRideMatching(app2, rideId, pickupLat, pickupLng, dropoffLat, dropoffLng, vehicleType, estimatedFare) {
+  const wss = app2?.locals?.wss;
+  const broadcast = (payload) => {
+    if (!wss) return;
+    const data = JSON.stringify(payload);
+    wss.clients.forEach((client) => {
+      if (client.readyState === WebSocket.OPEN) client.send(data);
+    });
+  };
+  async function isRidePending() {
+    const latest = await storage.getRide(rideId);
+    return latest && latest.status === "pending";
+  }
+  broadcast({ type: "matching_update", rideId, phase: "initial", radiusKm: 5, at: Date.now() });
+  const topDrivers5 = await findTopDrivers(pickupLat, pickupLng, vehicleType, 5);
+  const notified = new Set(await notifyDrivers({ id: rideId, pickupLat, pickupLng, dropoffLat, dropoffLng, vehicleType, estimatedFare }, topDrivers5, 3));
+  setTimeout(async () => {
+    if (!await isRidePending()) return;
+    broadcast({ type: "matching_update", rideId, phase: "expanded", radiusKm: 7, at: Date.now() });
+    const topDrivers7 = await findTopDrivers(pickupLat, pickupLng, vehicleType, 7);
+    const more = topDrivers7.filter((d) => !notified.has(d.id));
+    await notifyDrivers({ id: rideId, pickupLat, pickupLng, dropoffLat, dropoffLng, vehicleType, estimatedFare }, more, 3);
+    setTimeout(async () => {
+      if (!await isRidePending()) return;
+      broadcast({ type: "ride_timeout", rideId, at: Date.now() });
+    }, 3e4);
+  }, 3e4);
+}
+
 // server/routes.ts
 config3();
 var SIMPLE_AUTH2 = process.env.SIMPLE_AUTH === "true";
+var STACK_PROJECT_ID = process.env.STACK_PROJECT_ID || process.env.VITE_STACK_PROJECT_ID;
+var STACK_JWKS_URL = process.env.STACK_JWKS_URL || (STACK_PROJECT_ID ? `https://api.stack-auth.com/api/v1/projects/${STACK_PROJECT_ID}/.well-known/jwks.json` : void 0);
 console.log("\u{1F527} Environment check:", {
   SIMPLE_AUTH: SIMPLE_AUTH2,
   STRIPE_SECRET_KEY: process.env.STRIPE_SECRET_KEY ? "SET" : "NOT SET",
@@ -789,13 +982,15 @@ if (!SIMPLE_AUTH2) {
     admin.initializeApp();
   }
 }
-var stripe = (() => {
-  if (SIMPLE_AUTH2) return null;
-  if (!process.env.STRIPE_SECRET_KEY) {
-    throw new Error("Missing required Stripe secret: STRIPE_SECRET_KEY");
+var stripe = null;
+if (!SIMPLE_AUTH2) {
+  const key = process.env.STRIPE_SECRET_KEY;
+  if (key) {
+    stripe = new Stripe(key);
+  } else {
+    console.warn("[payments] Stripe disabled: STRIPE_SECRET_KEY not set. Payment route will return 503 in production or mock in development.");
   }
-  return new Stripe(process.env.STRIPE_SECRET_KEY);
-})();
+}
 async function verifyFirebaseToken(req, res, next) {
   if (req.session?.user) {
     req.firebaseUid = req.session.user.firebaseUid;
@@ -810,12 +1005,22 @@ async function verifyFirebaseToken(req, res, next) {
     return res.status(401).json({ error: "Unauthorized" });
   }
   const token = authHeader.substring(7);
+  if (STACK_JWKS_URL) {
+    try {
+      const JWKS = createRemoteJWKSet(new URL(STACK_JWKS_URL));
+      const { payload } = await jwtVerify(token, JWKS);
+      req.firebaseUid = payload.sub || payload.user_id;
+      req.email = payload.email || void 0;
+      return next();
+    } catch (e) {
+    }
+  }
   try {
     const decodedToken = await admin.auth().verifyIdToken(token);
     req.firebaseUid = decodedToken.uid;
     req.email = decodedToken.email;
     next();
-  } catch (error) {
+  } catch (_error) {
     return res.status(401).json({ error: "Invalid token" });
   }
 }
@@ -940,6 +1145,21 @@ async function registerRoutes(app2) {
       res.status(500).json({ error: error.message });
     }
   });
+  app2.get("/api/rider/available-drivers", verifyFirebaseToken, async (req, res) => {
+    try {
+      const user = await storage.getUserByFirebaseUid(req.firebaseUid);
+      if (!user) {
+        return res.status(404).json({ error: "User not found" });
+      }
+      if (user.role !== "rider") {
+        return res.status(403).json({ error: "Only riders can view available drivers" });
+      }
+      const drivers2 = await storage.listAvailableDrivers();
+      res.json(drivers2);
+    } catch (error) {
+      res.status(500).json({ error: error.message });
+    }
+  });
   app2.get("/api/rider/rides", verifyFirebaseToken, async (req, res) => {
     try {
       const user = await storage.getUserByFirebaseUid(req.firebaseUid);
@@ -989,16 +1209,18 @@ async function registerRoutes(app2) {
         vehicleType,
         femalePrefRequested
       } = req.body;
+      const pickLabel = pickupLocation || `Pickup (${Number(pickupLat).toFixed(5)}, ${Number(pickupLng).toFixed(5)})`;
+      const dropLabel = dropoffLocation || `Drop (${Number(dropoffLat).toFixed(5)}, ${Number(dropoffLng).toFixed(5)})`;
       const distance = 5.5;
       const estimatedFare = vehicleType === "e_scooter" ? 30 : vehicleType === "e_rickshaw" ? 45 : 80;
       const co2Saved = distance * 0.12;
       const ecoPoints = Math.floor(distance * 10);
       const ride = await storage.createRide({
         riderId: user.id,
-        pickupLocation,
+        pickupLocation: pickLabel,
         pickupLat,
         pickupLng,
-        dropoffLocation,
+        dropoffLocation: dropLabel,
         dropoffLat,
         dropoffLng,
         vehicleType,
@@ -1009,27 +1231,8 @@ async function registerRoutes(app2) {
         co2Saved: co2Saved.toString(),
         ecoPointsEarned: ecoPoints
       });
-      try {
-        const wssLocal = req.app.locals?.wss;
-        if (wssLocal) {
-          wssLocal.clients.forEach((client) => {
-            if (client.readyState === WebSocket.OPEN) {
-              client.send(JSON.stringify({
-                type: "ride_booked",
-                rideId: ride.id,
-                pickupLat,
-                pickupLng,
-                dropoffLat,
-                dropoffLng,
-                vehicleType,
-                at: Date.now()
-              }));
-            }
-          });
-        }
-      } catch {
-      }
-      res.json(ride);
+      initiateRideMatching(req.app, ride.id, Number(pickupLat), Number(pickupLng), Number(dropoffLat), Number(dropoffLng), vehicleType, estimatedFare);
+      res.status(201).json({ id: ride.id, status: "searching" });
     } catch (error) {
       res.status(500).json({ error: error.message });
     }
@@ -1074,7 +1277,7 @@ async function registerRoutes(app2) {
         const wssLocal = req.app.locals?.wss;
         if (wssLocal) {
           wssLocal.clients.forEach((client) => {
-            if (client.readyState === WebSocket.OPEN) {
+            if (client.readyState === WebSocket2.OPEN) {
               client.send(JSON.stringify({
                 type: "ride_accepted",
                 rideId: updatedRide.id,
@@ -1193,11 +1396,34 @@ async function registerRoutes(app2) {
       if (user.role !== "driver") {
         return res.status(403).json({ error: "Only drivers can set availability" });
       }
-      const { available } = req.body;
-      await storage.updateDriverProfile(user.id, {
-        isAvailable: available
+      const { available, is_online, current_lat, current_lng } = req.body || {};
+      const online = typeof is_online === "boolean" ? is_online : !!available;
+      const updated = await storage.updateDriverProfile(user.id, {
+        isAvailable: online
       });
-      res.json({ success: true });
+      const lat = typeof current_lat === "number" ? current_lat : void 0;
+      const lng = typeof current_lng === "number" ? current_lng : void 0;
+      const vehicleType = updated.vehicleType;
+      const rating = updated.rating ? Number(updated.rating) : void 0;
+      const p = setDriverOnline(user.id, online, lat, lng, vehicleType, rating);
+      try {
+        const wssLocal = req.app.locals?.wss;
+        if (wssLocal) {
+          const payload = JSON.stringify({
+            type: online ? "driver_online" : "driver_offline",
+            driverId: user.id,
+            vehicleType,
+            lat: p.lat,
+            lng: p.lng,
+            at: Date.now()
+          });
+          wssLocal.clients.forEach((client) => {
+            if (client.readyState === WebSocket2.OPEN) client.send(payload);
+          });
+        }
+      } catch {
+      }
+      res.json({ success: true, profile: updated, presence: p });
     } catch (error) {
       res.status(500).json({ error: error.message });
     }
@@ -1230,7 +1456,10 @@ async function registerRoutes(app2) {
     try {
       const { amount } = req.body;
       if (!stripe) {
-        return res.json({ clientSecret: `mock_${Math.round(amount * 100)}` });
+        if (process.env.NODE_ENV !== "production") {
+          return res.json({ clientSecret: `mock_${Math.round(amount * 100)}` });
+        }
+        return res.status(503).json({ error: "Payments unavailable: Stripe is not configured" });
       }
       const paymentIntent = await stripe.paymentIntents.create({
         amount: Math.round(amount * 100),
@@ -1251,7 +1480,7 @@ async function registerRoutes(app2) {
         const data = JSON.parse(message.toString());
         if (data.type === "location_update") {
           wss.clients.forEach((client) => {
-            if (client.readyState === WebSocket.OPEN) {
+            if (client.readyState === WebSocket2.OPEN) {
               client.send(JSON.stringify({
                 type: "location_update",
                 rideId: data.rideId,
@@ -1263,12 +1492,19 @@ async function registerRoutes(app2) {
             }
           });
         }
+        if (data.type === "iam_driver" && data.userId) {
+          registerDriverSocket(data.userId, ws2);
+        }
+        if (data.type === "driver_online") {
+          setDriverOnline(data.userId, true, data.lat, data.lng, data.vehicleType, data.rating);
+        }
       } catch (error) {
         console.error("WebSocket message error:", error);
       }
     });
     ws2.on("close", () => {
       console.log("Client disconnected from WebSocket");
+      unregisterSocket(ws2);
     });
   });
   return httpServer;

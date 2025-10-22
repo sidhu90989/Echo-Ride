@@ -41,6 +41,7 @@ import { useLocation } from "wouter";
 import MapComponent from "@/components/MapComponent";
 import type { LatLngLike as LatLng } from "@/utils/mapUtils";
 import type { DriverStats, Ride } from "@/types/api";
+import { useAppWebSocket } from "@/hooks/useAppWebSocket";
 
 export default function DriverDashboard() {
   const { user, signOut } = useAuth();
@@ -52,6 +53,7 @@ export default function DriverDashboard() {
   const [currentLocation, setCurrentLocation] = useState<LatLng | null>(null);
   const [newRideRequest, setNewRideRequest] = useState<Ride | null>(null);
   const [showRideRequest, setShowRideRequest] = useState(false);
+  const [wsReady, setWsReady] = useState(false);
 
   // Enhanced stats with daily earnings
   const todayStats = {
@@ -120,6 +122,50 @@ export default function DriverDashboard() {
     }
   }, [isAvailable]);
 
+  // App WebSocket: identify as driver and receive ride requests
+  const { connected, send } = useAppWebSocket((msg) => {
+    if (msg.type === "ride_request") {
+      // Minimal shape mapping into Ride type used in UI
+      const r: any = {
+        id: msg.rideId,
+        pickupLocation: `Pickup (${Number(msg.pickupLat).toFixed(4)}, ${Number(msg.pickupLng).toFixed(4)})`,
+        dropoffLocation: `Drop (${Number(msg.dropoffLat).toFixed(4)}, ${Number(msg.dropoffLng).toFixed(4)})`,
+        vehicleType: msg.vehicleType || "e_rickshaw",
+        estimatedFare: msg.estimatedFare || 0,
+        status: "pending",
+      };
+      setNewRideRequest(r);
+      setShowRideRequest(true);
+      toast({ title: "🚗 New Ride Request!", description: `${r.pickupLocation} → ${r.dropoffLocation}` });
+    }
+  });
+
+  useEffect(() => {
+    setWsReady(connected);
+    if (connected && user?.id) {
+      // Identify this socket as a driver
+      send({ type: "iam_driver", userId: user.id });
+    }
+  }, [connected, user?.id]);
+
+  // When available and we have location + ws, periodically announce online+location
+  useEffect(() => {
+    if (!isAvailable || !wsReady || !user?.id || !currentLocation) return;
+    // Send immediate presence update
+    send({
+      type: "driver_online",
+      userId: user.id,
+      lat: currentLocation.lat,
+      lng: currentLocation.lng,
+    });
+    // Throttle updates every ~10s while location changes
+    const t = setInterval(() => {
+      if (!currentLocation) return;
+      send({ type: "driver_online", userId: user.id!, lat: currentLocation.lat, lng: currentLocation.lng });
+    }, 10_000);
+    return () => clearInterval(t);
+  }, [isAvailable, wsReady, user?.id, currentLocation?.lat, currentLocation?.lng]);
+
   // Simulate new ride request notifications
   useEffect(() => {
     if (isAvailable && pendingRides && pendingRides.length > 0) {
@@ -139,7 +185,23 @@ export default function DriverDashboard() {
 
   const handleToggleAvailability = async (available: boolean) => {
     try {
-      await apiRequest("PUT", "/api/driver/availability", { available });
+      // Capture last known coords for presence update
+      let coords: { lat?: number; lng?: number } = {};
+      if ("geolocation" in navigator) {
+        try {
+          const pos = await new Promise<GeolocationPosition>((resolve, reject) =>
+            navigator.geolocation.getCurrentPosition(resolve, reject, { enableHighAccuracy: true, maximumAge: 10000, timeout: 10000 }),
+          );
+          coords = { lat: pos.coords.latitude, lng: pos.coords.longitude };
+          setCurrentLocation({ lat: coords.lat!, lng: coords.lng! });
+        } catch {}
+      }
+      await apiRequest("PUT", "/api/driver/availability", {
+        available,
+        is_online: available,
+        current_lat: typeof coords.lat === "number" ? coords.lat : undefined,
+        current_lng: typeof coords.lng === "number" ? coords.lng : undefined,
+      });
       setIsAvailable(available);
       
       if (available) {
@@ -637,11 +699,13 @@ export default function DriverDashboard() {
                   className="flex-1 bg-green-600 hover:bg-green-700"
                   onClick={() => {
                     setShowRideRequest(false);
-                    setNewRideRequest(null);
-                    toast({
-                      title: "Ride Accepted! 🎉",
-                      description: "Navigate to pickup location to start the trip",
-                    });
+                    const rid = newRideRequest?.id;
+                    if (rid) {
+                      handleAcceptRide(rid);
+                    } else {
+                      setNewRideRequest(null);
+                      toast({ title: "Ride Accepted! 🎉", description: "Navigate to pickup location to start the trip" });
+                    }
                   }}
                 >
                   <CheckCircle className="h-4 w-4 mr-2" />
