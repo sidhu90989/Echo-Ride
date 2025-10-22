@@ -6,7 +6,8 @@ import { useToast } from "@/hooks/use-toast";
 import { Leaf, Smartphone } from "lucide-react";
 import { useLocation } from "wouter";
 import { apiRequest } from "@/lib/queryClient";
-import { signInWithGoogle, ensureRecaptcha, signInWithPhoneNumber, confirmOTP } from "@/lib/firebase";
+import { signInWithGoogle, ensureRecaptcha, signInWithPhoneNumber, confirmOTP, auth, googleProvider } from "@/lib/firebase";
+import { signInWithRedirect } from "firebase/auth";
 import OTPInput from "@/components/OTPInput";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
@@ -38,7 +39,19 @@ export default function LoginPage() {
       (window as any)._pendingGoogle = { email, displayName };
       setRoleModalOpen(true);
     } catch (e: any) {
-      toast({ title: "Google sign-in failed", description: e.message || String(e), variant: "destructive" });
+      const msg: string = e?.message || String(e);
+      const code: string | undefined = e?.code;
+      // Fallback to redirect in environments that block popups (e.g., in-app browsers, some embeds)
+      if (auth && googleProvider && (msg.includes("popup") || msg.includes("operation-not-supported"))) {
+        try {
+          await signInWithRedirect(auth, googleProvider);
+          return; // page will redirect
+        } catch (e2: any) {
+          toast({ title: "Google sign-in failed", description: e2.message || msg, variant: "destructive" });
+          return;
+        }
+      }
+      toast({ title: "Google sign-in failed", description: msg, variant: "destructive" });
     } finally {
       setVerifying(false);
     }
