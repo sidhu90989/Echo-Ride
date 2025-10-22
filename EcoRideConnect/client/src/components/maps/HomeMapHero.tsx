@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useRef, useState } from "react";
-import { RideMap, type LatLng } from "@/components/maps/RideMap";
-import MapLibreRideMap from "@/components/maps/MapLibreRideMap";
+import MapComponent, { type Driver } from "@/components/MapComponent";
+import type { LatLngLike as LatLng } from "@/utils/mapUtils";
 
 function interpolatePath(a: LatLng, b: LatLng, steps = 60): LatLng[] {
   const pts: LatLng[] = [];
@@ -16,26 +16,6 @@ function interpolatePath(a: LatLng, b: LatLng, steps = 60): LatLng[] {
 
 export function HomeMapHero() {
   const apiKey = import.meta.env.VITE_GOOGLE_MAPS_API_KEY as string | undefined;
-  const envUseMapLibre = (import.meta as any).env?.VITE_USE_MAPLIBRE === 'true';
-  const [googleReady, setGoogleReady] = useState<boolean | null>(null);
-
-  // Detect whether Google Maps script became available in a reasonable time.
-  useEffect(() => {
-    if (!apiKey) {
-      setGoogleReady(false);
-      return;
-    }
-    setGoogleReady(null);
-    const check = () => {
-      // @ts-ignore
-      const ok = typeof window !== 'undefined' && !!(window as any).google?.maps;
-      setGoogleReady(ok);
-    };
-    const t = window.setTimeout(check, 2500);
-    return () => window.clearTimeout(t);
-  }, [apiKey]);
-
-  const useMapLibre = envUseMapLibre || !apiKey || googleReady === false;
 
   // Demo route between two Delhi points
   const pickup = useMemo<LatLng>(() => ({ lat: 28.6139, lng: 77.2090 }), []);
@@ -71,7 +51,7 @@ export function HomeMapHero() {
     return () => { if (watchId !== null) navigator.geolocation.clearWatch(watchId); };
   }, []);
 
-  if (!apiKey && !useMapLibre) {
+  if (!apiKey) {
     return (
       <div className="aspect-[4/3] rounded-2xl bg-card border shadow-xl overflow-hidden">
         <div className="absolute inset-0 bg-gradient-to-br from-primary/10 to-sky-blue/10" />
@@ -86,28 +66,19 @@ export function HomeMapHero() {
 
   return (
     <div className="rounded-2xl border shadow-xl overflow-hidden">
-      {useMapLibre ? (
-        <MapLibreRideMap
+      <div style={{height: 320}}>
+        <MapComponent
+          // apiKey can be omitted to use VITE_GOOGLE_MAPS_API_KEY
           pickup={pickup}
-          dropoff={dropoff}
-          rider={rider}
-          driver={driver}
-          path={path}
-          height={320}
-          autoFit={false}
+          drop={dropoff}
+          drawRoute={true}
+          drivers={useMemo<Driver[]>(() => [
+            driver ? { id: 'moving1', lat: driver.lat, lng: driver.lng, vehicle_type: 'E-Rickshaw', is_available: true, name: 'Rider-1', rating: 4.8 } :
+            { id: 'static1', lat: pickup.lat + 0.005, lng: pickup.lng + 0.005, vehicle_type: 'E-Scooter', is_available: true, name: 'Scoot-1', rating: 4.6 },
+            { id: 'static2', lat: pickup.lat - 0.004, lng: pickup.lng - 0.006, vehicle_type: 'CNG', is_available: true, name: 'CNG-1', rating: 4.5 },
+          ], [driver, pickup.lat, pickup.lng])}
         />
-      ) : (
-        <RideMap
-          apiKey={apiKey!}
-          pickup={pickup}
-          dropoff={dropoff}
-          rider={rider}
-          driver={driver}
-          path={path}
-          height={320}
-          autoFit={false}
-        />
-      )}
+      </div>
     </div>
   );
 }
