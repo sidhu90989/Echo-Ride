@@ -103,6 +103,17 @@ export interface IStorage {
   getRiderStats(userId: string): Promise<any>;
   getDriverStats(userId: string): Promise<any>;
   getAdminStats(): Promise<any>;
+
+  // Discovery
+  listAvailableDrivers(): Promise<Array<{
+    id: string;
+    name: string;
+    rating: any;
+    vehicleNumber: string | null;
+    vehicleType: 'e_rickshaw' | 'e_scooter' | 'cng_car';
+    estimatedArrival: number;
+    fare: number;
+  }>>;
 }
 
 export class DatabaseStorage implements IStorage {
@@ -391,6 +402,27 @@ export class DatabaseStorage implements IStorage {
       vehicleStats,
     };
   }
+
+  async listAvailableDrivers() {
+    const db = await getDb();
+    const rows = await db
+      .select({
+        id: driverProfiles.userId,
+        name: users.name,
+        rating: driverProfiles.rating,
+        vehicleNumber: driverProfiles.vehicleNumber,
+        vehicleType: driverProfiles.vehicleType,
+      })
+      .from(driverProfiles)
+      .innerJoin(users, eq(driverProfiles.userId, users.id))
+      .where(eq(driverProfiles.isAvailable, true));
+
+    return rows.map((r: any) => ({
+      ...r,
+      estimatedArrival: 3,
+      fare: r.vehicleType === 'e_scooter' ? 30 : r.vehicleType === 'e_rickshaw' ? 45 : 80,
+    }));
+  }
 }
 
 // In-memory storage for SIMPLE_AUTH/local runs
@@ -571,6 +603,23 @@ class MemoryStorage implements IStorage {
       monthRides: allRides.length,
       vehicleStats,
     };
+  }
+
+  async listAvailableDrivers() {
+    return this._driverProfiles
+      .filter((d) => d.isAvailable)
+      .map((d) => {
+        const u = this._users.find((u) => u.id === d.userId);
+        return {
+          id: d.userId,
+          name: u?.name || 'Unknown',
+          rating: d.rating,
+          vehicleNumber: d.vehicleNumber,
+          vehicleType: d.vehicleType,
+          estimatedArrival: 3,
+          fare: d.vehicleType === 'e_scooter' ? 30 : d.vehicleType === 'e_rickshaw' ? 45 : 80,
+        };
+      });
   }
 }
 

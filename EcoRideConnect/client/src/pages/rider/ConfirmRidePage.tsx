@@ -54,36 +54,39 @@ export default function ConfirmRidePage() {
     co2Saved: "1.2 kg"
   };
 
-  // Mock drivers data
-  const availableDrivers: Driver[] = [
-    {
-      id: "1",
-      name: "Ravi Kumar",
-      rating: 4.8,
-      vehicleNumber: "DL 8C 1234",
-      estimatedArrival: 3,
-      vehicleType: "E-Rickshaw",
-      fare: 45
-    },
-    {
-      id: "2", 
-      name: "Priya Singh",
-      rating: 4.9,
-      vehicleNumber: "DL 7A 5678",
-      estimatedArrival: 5,
-      vehicleType: "E-Scooter",
-      fare: 30
-    },
-    {
-      id: "3",
-      name: "Amit Sharma",
-      rating: 4.7,
-      vehicleNumber: "DL 9B 9876",
-      estimatedArrival: 7,
-      vehicleType: "CNG Car",
-      fare: 80
+  // Load available drivers from API (real data)
+  function fareFor(vehicleType: string) {
+    switch (vehicleType) {
+      case "e_scooter": return 30;
+      case "e_rickshaw": return 45;
+      case "cng_car": return 80;
+      default: return 45;
     }
-  ];
+  }
+
+  const { data: apiDrivers, isLoading } = useQuery<
+    Array<{
+      id: string;
+      name: string;
+      rating: string | number;
+      vehicleNumber: string | null;
+      vehicleType: "e_rickshaw" | "e_scooter" | "cng_car";
+      estimatedArrival: number;
+      fare?: number;
+    }>
+  >({
+    queryKey: ["/api/rider/available-drivers"],
+  });
+
+  const availableDrivers: Driver[] = (apiDrivers || []).map((d) => ({
+    id: d.id,
+    name: d.name,
+    rating: typeof d.rating === "string" ? parseFloat(d.rating) : d.rating,
+    vehicleNumber: d.vehicleNumber || "PENDING",
+    estimatedArrival: d.estimatedArrival ?? 3,
+    vehicleType: d.vehicleType,
+    fare: typeof d.fare === "number" ? d.fare : fareFor(d.vehicleType),
+  }));
 
   const handleConfirmRide = async () => {
     if (!selectedDriver) {
@@ -112,6 +115,14 @@ export default function ConfirmRidePage() {
       });
     }, 200);
   };
+
+  if (isLoading) {
+    return (
+      <div className="min-h-screen flex items-center justify-center">
+        <LoadingSpinner />
+      </div>
+    );
+  }
 
   if (searching) {
     return (
@@ -221,6 +232,9 @@ export default function ConfirmRidePage() {
           <div className="space-y-4">
             <h2 className="font-serif text-lg font-semibold">Available Drivers</h2>
             <RadioGroup value={selectedDriver} onValueChange={setSelectedDriver}>
+              {availableDrivers.length === 0 && (
+                <Card className="p-4 text-center text-muted-foreground">No drivers are currently available.</Card>
+              )}
               {availableDrivers.map((driver) => (
                 <div key={driver.id} className="space-y-0">
                   <Card className={`p-4 cursor-pointer transition-all ${

@@ -8,7 +8,7 @@ import {
   type InsertDriverProfile,
 } from "@shared/schema";
 
-async function seed() {
+export async function seed() {
   try {
     console.log("🌱 Seeding database...");
     const db = maybeDb!;
@@ -126,18 +126,3 @@ async function seed() {
     throw error;
   }
 }
-
-// Run seed if called directly
-if (require.main === module) {
-  seed()
-    .then(() => {
-      console.log("🌱 Seeding completed");
-      process.exit(0);
-    })
-    .catch((error) => {
-      console.error("💥 Seeding failed:", error);
-      process.exit(1);
-    });
-}
-
-export { seed };

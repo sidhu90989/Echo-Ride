@@ -213,6 +213,22 @@ export async function registerRoutes(app: Express): Promise<Server> {
       res.status(500).json({ error: error.message });
     }
   });
+  
+  app.get("/api/rider/available-drivers", verifyFirebaseToken, async (req: any, res: any) => {
+    try {
+      const user = await storage.getUserByFirebaseUid(req.firebaseUid);
+      if (!user) {
+        return res.status(404).json({ error: "User not found" });
+      }
+      if (user.role !== "rider") {
+        return res.status(403).json({ error: "Only riders can view available drivers" });
+      }
+      const drivers = await storage.listAvailableDrivers();
+      res.json(drivers);
+    } catch (error: any) {
+      res.status(500).json({ error: error.message });
+    }
+  });
 
   app.get("/api/rider/rides", verifyFirebaseToken, async (req: any, res) => {
     try {
