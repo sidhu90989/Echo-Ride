@@ -10,38 +10,21 @@ import { Leaf, Mail } from "lucide-react";
 import { SiGoogle } from "react-icons/si";
 import { useLocation } from "wouter";
 import { apiRequest } from "@/lib/queryClient";
+import { auth } from "@/lib/firebase";
+import { withApiBase } from "@/lib/apiBase";
 
 export default function LoginPage() {
   const [, setLocation] = useLocation();
-  const { signInWithGoogle, setUser } = useAuth();
+  const { signInWithGoogle, setUser, firebaseUser } = useAuth();
   const { toast } = useToast();
   const [loading, setLoading] = useState(false);
-  const [showRoleSelection, setShowRoleSelection] = useState(false);
+  // Show profile form first; we'll prompt Google sign-in on submit
+  const [showRoleSelection, setShowRoleSelection] = useState(true);
   const [selectedRole, setSelectedRole] = useState<"rider" | "driver" | "admin">("rider");
   const [name, setName] = useState("");
   const [phone, setPhone] = useState("");
 
-  const handleGoogleSignIn = async () => {
-    try {
-      setLoading(true);
-      const SIMPLE_AUTH = import.meta.env.VITE_SIMPLE_AUTH === 'true';
-      if (SIMPLE_AUTH) {
-        // In simple auth, we immediately show the role/profile form
-        setShowRoleSelection(true);
-      } else {
-        await signInWithGoogle();
-        setShowRoleSelection(true);
-      }
-    } catch (error) {
-      toast({
-        title: "Sign In Failed",
-        description: "Could not sign in with Google. Please try again.",
-        variant: "destructive",
-      });
-    } finally {
-      setLoading(false);
-    }
-  };
+  // We no longer ask user to sign in first; we'll trigger Google sign-in on submit if needed
 
   const handleCompleteProfile = async () => {
     if (!name.trim() || !phone.trim()) {
@@ -72,12 +55,28 @@ export default function LoginPage() {
         });
         userData = await res.json();
       } else {
-        const response = await apiRequest("POST", "/api/auth/complete-profile", {
-          name,
-          phone,
-          role: selectedRole,
+        // Ensure the user is authenticated with Firebase first
+        if (!auth?.currentUser && !firebaseUser) {
+          await signInWithGoogle();
+        }
+        // Get a fresh ID token
+        const token = await (auth?.currentUser || firebaseUser)?.getIdToken();
+        if (!token) {
+          throw new Error("Sign-in required to continue. Please try again.");
+        }
+        const res = await fetch(withApiBase("/api/auth/complete-profile"), {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+            Authorization: `Bearer ${token}`,
+          },
+          body: JSON.stringify({ name, phone, role: selectedRole }),
         });
-        userData = await response.json();
+        if (!res.ok) {
+          const msg = await res.text();
+          throw new Error(msg || "Failed to complete profile");
+        }
+        userData = await res.json();
       }
       setUser(userData);
       
@@ -121,51 +120,12 @@ export default function LoginPage() {
         </div>
 
         <Card className="p-8">
-          {!showRoleSelection ? (
-            <div className="space-y-6">
-              <div className="space-y-2">
-                <h2 className="font-serif text-2xl font-semibold text-center">Welcome</h2>
-                <p className="text-muted-foreground text-center text-sm">
-                  Sign in to start your eco-friendly journey
-                </p>
-              </div>
-
-              <Button
-                className="w-full gap-2"
-                onClick={handleGoogleSignIn}
-                disabled={loading}
-                size="lg"
-                data-testid="button-google-signin"
-              >
-                <SiGoogle className="h-5 w-5" />
-                Continue
-              </Button>
-
-              <div className="relative">
-                <div className="absolute inset-0 flex items-center">
-                  <span className="w-full border-t" />
-                </div>
-                <div className="relative flex justify-center text-xs uppercase">
-                  <span className="bg-card px-2 text-muted-foreground">or</span>
-                </div>
-              </div>
-
-              <Button
-                variant="outline"
-                className="w-full gap-2"
-                disabled
-                size="lg"
-              >
-                <Mail className="h-5 w-5" />
-                Continue with Email (Coming Soon)
-              </Button>
-            </div>
-          ) : (
+          {showRoleSelection ? (
             <div className="space-y-6">
               <div className="space-y-2">
                 <h2 className="font-serif text-2xl font-semibold text-center">Complete Your Profile</h2>
                 <p className="text-muted-foreground text-center text-sm">
-                  Tell us a bit about yourself
+                  Tell us a bit about yourself. We’ll ask you to verify with Google on submit.
                 </p>
               </div>
 
@@ -224,10 +184,10 @@ export default function LoginPage() {
                 size="lg"
                 data-testid="button-complete-profile"
               >
-                {loading ? "Setting up..." : "Get Started"}
+                {loading ? "Verifying..." : "Continue"}
               </Button>
             </div>
-          )}
+          ) : null}
         </Card>
 
         <p className="text-center text-xs text-muted-foreground">

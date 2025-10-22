@@ -16,7 +16,26 @@ function interpolatePath(a: LatLng, b: LatLng, steps = 60): LatLng[] {
 
 export function HomeMapHero() {
   const apiKey = import.meta.env.VITE_GOOGLE_MAPS_API_KEY as string | undefined;
-  const useMapLibre = (import.meta as any).env?.VITE_USE_MAPLIBRE === 'true' || !apiKey;
+  const envUseMapLibre = (import.meta as any).env?.VITE_USE_MAPLIBRE === 'true';
+  const [googleReady, setGoogleReady] = useState<boolean | null>(null);
+
+  // Detect whether Google Maps script became available in a reasonable time.
+  useEffect(() => {
+    if (!apiKey) {
+      setGoogleReady(false);
+      return;
+    }
+    setGoogleReady(null);
+    const check = () => {
+      // @ts-ignore
+      const ok = typeof window !== 'undefined' && !!(window as any).google?.maps;
+      setGoogleReady(ok);
+    };
+    const t = window.setTimeout(check, 2500);
+    return () => window.clearTimeout(t);
+  }, [apiKey]);
+
+  const useMapLibre = envUseMapLibre || !apiKey || googleReady === false;
 
   // Demo route between two Delhi points
   const pickup = useMemo<LatLng>(() => ({ lat: 28.6139, lng: 77.2090 }), []);
