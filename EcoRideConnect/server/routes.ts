@@ -15,6 +15,7 @@ import { registerDriverSocket, unregisterSocket, setDriverOnline, getDriverSocke
 import { findNearestDrivers } from "./services/driverMatchingService";
 import { initiateRideMatching } from "./services/rideMatchingService";
 import { requestEmailOtp, verifyEmailOtp } from "./services/emailOtpService";
+import { initializeSocketIO } from "./socketService";
 
 // Flags
 const SIMPLE_AUTH = process.env.SIMPLE_AUTH === "true";
@@ -809,9 +810,14 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
   const httpServer = createServer(app);
 
-  // WebSocket server for real-time updates
+  // Initialize Socket.IO for real-time features (OLA-style maps)
+  const io = initializeSocketIO(httpServer);
+  console.log('🚀 Socket.IO initialized for real-time ride management');
+
+  // WebSocket server for real-time updates (legacy - keeping for backward compatibility)
   const wss = new WebSocketServer({ server: httpServer, path: '/ws' });
   (app as any).locals.wss = wss;
+  (app as any).locals.io = io; // Make Socket.IO accessible to routes
 
   wss.on('connection', (ws: WebSocket) => {
     console.log('Client connected to WebSocket');
