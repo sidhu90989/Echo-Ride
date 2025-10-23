@@ -14,15 +14,16 @@ import {
   type User,
 } from "firebase/auth";
 
-// Clean, native Firebase config (no OIDC). Updated with EcoRide project credentials.
+// Clean, native Firebase config (no OIDC). Updated with trusty-diorama credentials.
 const firebaseConfig = {
-  apiKey: "AIzaSyD2EOQDEyeBxeFT4_rrNLejmaqBtUxyGuM",
-  authDomain: "ecoride-f86b9.firebaseapp.com",
-  projectId: "ecoride-f86b9",
-  storageBucket: "ecoride-f86b9.firebasestorage.app",
-  messagingSenderId: "937932926319",
-  appId: "1:937932926319:web:70805c9dd506c2e1f50c9a",
-  measurementId: "G-FGTJEYE2DL",
+  apiKey: "AIzaSyAyoxCh_tJzFHwMNSX1Zs6Ez1EmYMxxUPg",
+  authDomain: "trusty-diorama-475905-c3.firebaseapp.com",
+  projectId: "trusty-diorama-475905-c3",
+  storageBucket: "trusty-diorama-475905-c3.firebasestorage.app",
+  messagingSenderId: "805719737795",
+  appId: "1:805719737795:web:fdf6eb93864fcde7b8a976",
+  // measurementId optional; not provided in this project
+  measurementId: undefined as unknown as string | undefined,
 } as const;
 
 const app = initializeApp(firebaseConfig);
@@ -45,7 +46,20 @@ export const phoneProvider = new PhoneAuthProvider(auth);
 export const emailProvider = EmailAuthProvider;
 
 // Helpers used by LoginPage (keep signatures stable)
-export const signInWithGoogle = () => signInWithPopup(auth, googleProvider);
+export const signInWithGoogle = async () => {
+  try {
+    return await signInWithPopup(auth, googleProvider);
+  } catch (e: any) {
+    const code = e?.code || "";
+    if (String(code).includes("auth/unauthorized-domain")) {
+      const host = typeof window !== "undefined" ? window.location.host : "this domain";
+      throw new Error(
+        `Unauthorized domain: ${host}. Add this exact host to Firebase → Authentication → Settings → Authorized domains (project: ${firebaseConfig.projectId}).`
+      );
+    }
+    throw e;
+  }
+};
 
 let recaptcha: RecaptchaVerifier | undefined;
 
