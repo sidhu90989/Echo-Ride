@@ -22,8 +22,7 @@ const firebaseConfig = {
   storageBucket: "trusty-diorama-475905-c3.firebasestorage.app",
   messagingSenderId: "805719737795",
   appId: "1:805719737795:web:fdf6eb93864fcde7b8a976",
-  // measurementId optional; not provided in this project
-  measurementId: undefined as unknown as string | undefined,
+  measurementId: "G-2BZXC1LWPM",
 } as const;
 
 const app = initializeApp(firebaseConfig);

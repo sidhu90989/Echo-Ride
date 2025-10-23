@@ -293,7 +293,9 @@ var init_db = __esm({
   "server/db.ts"() {
     "use strict";
     init_schema();
-    config();
+    if (process.env.NODE_ENV !== "production") {
+      config();
+    }
     SIMPLE_AUTH = process.env.SIMPLE_AUTH === "true";
     console.log(`[db] module init. SIMPLE_AUTH=${process.env.SIMPLE_AUTH} DATABASE_URL=${process.env.DATABASE_URL ? "SET" : "MISSING"}`);
     if (!SIMPLE_AUTH) {
@@ -326,7 +328,9 @@ init_schema();
 import { config as config2 } from "dotenv";
 import { eq, and, or, desc, sql as sql2 } from "drizzle-orm";
 import { customAlphabet } from "nanoid";
-config2();
+if (process.env.NODE_ENV !== "production") {
+  config2();
+}
 console.log(`[storage] module initialized. SIMPLE_AUTH=${process.env.SIMPLE_AUTH} DATABASE_URL=${process.env.DATABASE_URL ? "SET" : "MISSING"}`);
 async function getDb() {
   const { db: db2 } = await Promise.resolve().then(() => (init_db(), db_exports));
@@ -764,7 +768,6 @@ var storage = StorageSelector.getInstance();
 // server/routes.ts
 import Stripe from "stripe";
 import admin from "firebase-admin";
-import { createRemoteJWKSet, jwtVerify } from "jose";
 
 // server/integrations/nameApi.ts
 function getEnv() {
@@ -1002,19 +1005,23 @@ function verifyEmailOtp(emailRaw, code) {
 }
 
 // server/routes.ts
-config3();
+if (process.env.NODE_ENV !== "production") {
+  config3();
+}
 var SIMPLE_AUTH2 = process.env.SIMPLE_AUTH === "true";
-var STACK_PROJECT_ID = process.env.STACK_PROJECT_ID || process.env.VITE_STACK_PROJECT_ID;
-var STACK_JWKS_URL = process.env.STACK_JWKS_URL || (STACK_PROJECT_ID ? `https://api.stack-auth.com/api/v1/projects/${STACK_PROJECT_ID}/.well-known/jwks.json` : void 0);
 console.log("\u{1F527} Environment check:", {
   SIMPLE_AUTH: SIMPLE_AUTH2,
   STRIPE_SECRET_KEY: process.env.STRIPE_SECRET_KEY ? "SET" : "NOT SET",
   NODE_ENV: process.env.NODE_ENV
 });
-if (!SIMPLE_AUTH2) {
-  if (!admin.apps.length) {
-    admin.initializeApp();
+if (!admin.apps.length) {
+  const PROJECT_ID = process.env.FIREBASE_PROJECT_ID || process.env.VITE_FIREBASE_PROJECT_ID || process.env.GOOGLE_CLOUD_PROJECT || process.env.GCLOUD_PROJECT || void 0;
+  if (!process.env.GOOGLE_CLOUD_PROJECT && PROJECT_ID) {
+    process.env.GOOGLE_CLOUD_PROJECT = PROJECT_ID;
   }
+  admin.initializeApp({
+    projectId: PROJECT_ID
+  });
 }
 var stripe = null;
 if (!SIMPLE_AUTH2) {
@@ -1039,16 +1046,6 @@ async function verifyFirebaseToken(req, res, next) {
     return res.status(401).json({ error: "Unauthorized" });
   }
   const token = authHeader.substring(7);
-  if (STACK_JWKS_URL) {
-    try {
-      const JWKS = createRemoteJWKSet(new URL(STACK_JWKS_URL));
-      const { payload } = await jwtVerify(token, JWKS);
-      req.firebaseUid = payload.sub || payload.user_id;
-      req.email = payload.email || void 0;
-      return next();
-    } catch (e) {
-    }
-  }
   try {
     const decodedToken = await admin.auth().verifyIdToken(token);
     req.firebaseUid = decodedToken.uid;
@@ -1182,6 +1179,123 @@ async function registerRoutes(app2) {
         return res.status(500).json({ error: message });
       }
       return res.status(500).json({ error: "Internal Server Error" });
+    }
+  });
+  app2.post("/api/auth/firebase-login", async (req, res) => {
+    try {
+      const { idToken, role, phone } = req.body || {};
+      if (!idToken) return res.status(400).json({ error: "idToken is required" });
+      const decoded = await admin.auth().verifyIdToken(idToken);
+      const firebaseUid = decoded.uid;
+      const email = decoded.email || void 0;
+      const name = decoded.name || (email ? email.split("@")[0] + " User" : "EcoRide User");
+      const phoneNumber = decoded.phone_number || (typeof phone === "string" ? phone : void 0);
+      const selectedRole = role === "driver" || role === "admin" ? role : "rider";
+      let user = await storage.getUserByFirebaseUid(firebaseUid);
+      if (!user && email) {
+        const byEmail = await storage.getUserByEmail(email);
+        if (byEmail) {
+          user = await storage.updateUser(byEmail.id, { firebaseUid, phone: byEmail.phone || phoneNumber, role: byEmail.role || selectedRole });
+        }
+      }
+      if (!user) {
+        const referralCode = generateReferralCode(name);
+        user = await storage.createUser({
+          firebaseUid,
+          email: email || `${firebaseUid}@example.com`,
+          name,
+          phone: phoneNumber,
+          role: selectedRole,
+          referralCode,
+          ecoPoints: 0,
+          totalCO2Saved: "0",
+          isActive: true
+        });
+        if (selectedRole === "driver") {
+          await storage.createDriverProfile({
+            userId: user.id,
+            vehicleType: "e_rickshaw",
+            vehicleNumber: "PENDING",
+            licenseNumber: "PENDING",
+            kycStatus: "pending",
+            rating: "5.00",
+            totalRides: 0,
+            totalEarnings: "0",
+            isAvailable: false,
+            femalePrefEnabled: false
+          });
+        }
+      } else if (phoneNumber && !user.phone) {
+        user = await storage.updateUser(user.id, { phone: phoneNumber });
+      }
+      req.session.user = {
+        firebaseUid,
+        email: user.email,
+        name: user.name,
+        role: user.role
+      };
+      res.json(user);
+    } catch (e) {
+      console.error("[auth] /api/auth/firebase-login error:", e);
+      const msg = e?.message || "Invalid token";
+      res.status(401).json({ error: msg });
+    }
+  });
+  app2.post("/api/auth/firebase-login", async (req, res) => {
+    try {
+      const { idToken, role } = req.body || {};
+      if (!idToken) return res.status(400).json({ error: "idToken is required" });
+      const decoded = await admin.auth().verifyIdToken(idToken);
+      const firebaseUid = decoded.uid;
+      const email = decoded.email || void 0;
+      const name = decoded.name || void 0;
+      const phone = decoded.phone_number || void 0;
+      let user = await storage.getUserByFirebaseUid(firebaseUid);
+      if (!user) {
+        const referralCode = generateReferralCode(name || (email || "user"));
+        user = await storage.createUser({
+          firebaseUid,
+          email: email || `${firebaseUid}@unknown`,
+          name: name || (email ? email.split("@")[0] : "New User"),
+          phone,
+          role: role === "driver" || role === "admin" ? role : "rider",
+          referralCode,
+          ecoPoints: 0,
+          totalCO2Saved: "0",
+          isActive: true
+        });
+        if (user && user.role === "driver") {
+          await storage.createDriverProfile({
+            userId: user.id,
+            vehicleType: "e_rickshaw",
+            vehicleNumber: "PENDING",
+            licenseNumber: "PENDING",
+            kycStatus: "pending",
+            rating: "5.00",
+            totalRides: 0,
+            totalEarnings: "0",
+            isAvailable: false,
+            femalePrefEnabled: false
+          });
+        }
+      } else {
+        const updates = {};
+        if (!user.email && email) updates.email = email;
+        if (!user.name && name) updates.name = name;
+        if (!user.phone && phone) updates.phone = phone;
+        if (Object.keys(updates).length) {
+          user = await storage.updateUser(user.id, updates);
+        }
+      }
+      req.session.user = {
+        firebaseUid,
+        email: user.email,
+        name: user.name,
+        role: user.role
+      };
+      return res.json(user);
+    } catch (e) {
+      return res.status(401).json({ error: e?.message || "Invalid ID token" });
     }
   });
   app2.get("/api/health", (_req, res) => {
@@ -1744,7 +1858,9 @@ function serveStatic(app2) {
 }
 
 // server/index.ts
-config4();
+if (process.env.NODE_ENV !== "production") {
+  config4();
+}
 var app = express2();
 app.set("trust proxy", 1);
 app.use(express2.json());
