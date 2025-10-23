@@ -20,6 +20,10 @@ services:
     envVars:
       - key: NODE_ENV
         value: production
+      - key: FIREBASE_PROJECT_ID
+        value: trusty-diorama-475905-c3
+      - key: GOOGLE_CLOUD_PROJECT
+        value: trusty-diorama-475905-c3
       - key: SESSION_SECRET
         generateValue: true
       - key: VITE_BASE_PATH

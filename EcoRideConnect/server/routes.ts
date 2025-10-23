@@ -26,7 +26,13 @@ console.log("🔧 Environment check:", {
 
 // Initialize Firebase Admin always so we can verify ID tokens even in SIMPLE_AUTH mode
 if (!admin.apps.length) {
-  const PROJECT_ID = process.env.FIREBASE_PROJECT_ID || process.env.VITE_FIREBASE_PROJECT_ID || process.env.GOOGLE_CLOUD_PROJECT || process.env.GCLOUD_PROJECT || undefined;
+  const PROJECT_ID =
+    process.env.FIREBASE_PROJECT_ID ||
+    process.env.VITE_FIREBASE_PROJECT_ID ||
+    process.env.GOOGLE_CLOUD_PROJECT ||
+    process.env.GCLOUD_PROJECT ||
+    // Final fallback to current public project id to prevent runtime failures on cold starts
+    "trusty-diorama-475905-c3";
   if (!process.env.GOOGLE_CLOUD_PROJECT && PROJECT_ID) {
     process.env.GOOGLE_CLOUD_PROJECT = PROJECT_ID;
   }
