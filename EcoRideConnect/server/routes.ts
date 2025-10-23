@@ -240,6 +240,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
+  // Note: OIDC verification route removed; native Firebase tokens are verified via /api/auth/verify using Firebase Admin.
+
   // Simple health endpoint
   app.get('/api/health', (_req, res) => {
     res.json({ ok: true, mode: SIMPLE_AUTH ? 'simple' : 'full' });

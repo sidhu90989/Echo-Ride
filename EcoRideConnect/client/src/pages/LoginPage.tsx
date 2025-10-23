@@ -1,4 +1,4 @@
-import { useRef, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { useAuth } from "@/contexts/AuthContext";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
@@ -27,6 +27,8 @@ export default function LoginPage() {
   const [sending, setSending] = useState(false);
   const [otp, setOtp] = useState("");
   const confirmationRef = useRef<import("firebase/auth").ConfirmationResult | null>(null);
+
+  // Removed OIDC redirect handling; using native Firebase popup/redirect exclusively
 
   const signInWithGoogleFlow = async () => {
     try {
