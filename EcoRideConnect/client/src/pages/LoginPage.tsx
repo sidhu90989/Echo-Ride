@@ -29,21 +29,36 @@ export default function LoginPage() {
   const confirmationRef = useRef<import("firebase/auth").ConfirmationResult | null>(null);
 
   // Removed OIDC redirect handling; using native Firebase popup/redirect exclusively
+  // Handle native Firebase redirect completion: if user is already signed into Firebase
+  // (e.g., after signInWithRedirect), prepare role modal and send token to backend.
+  useEffect(() => {
+    (async () => {
+      try {
+        if ((window as any)._handledRedirect) return;
+        const user = auth?.currentUser;
+        if (!user) return;
+        (window as any)._handledRedirect = true;
+        const idToken = await user.getIdToken();
+        (window as any)._pendingGoogle = {
+          idToken,
+          email: user.email || '',
+          displayName: user.displayName || 'EcoRide User',
+        };
+        setSelectedRole(role);
+        setRoleModalOpen(true);
+      } catch {}
+    })();
+  }, [role]);
 
   const signInWithGoogleFlow = async () => {
     try {
       setVerifying(true);
       const cred = await signInWithGoogle();
-      // Send ID token to server to create session and user record
+      // Defer role selection to modal, then call server with idToken
       const idToken = await cred.user.getIdToken();
-      const resp = await apiRequest('POST', '/api/auth/firebase-login', { idToken, role });
-      if (!resp.ok) throw new Error('Server failed to verify token');
-      const userData = await resp.json();
-      setUser(userData);
-      toast({ title: 'Welcome to EcoRide!', description: `Signed in as ${userData.email}` });
-      if (userData.role === 'admin') setLocation('/admin');
-      else if (userData.role === 'driver') setLocation('/driver');
-      else setLocation('/rider');
+      (window as any)._pendingGoogle = { idToken, email: cred.user.email || '', displayName: cred.user.displayName || '' };
+      setSelectedRole(role);
+      setRoleModalOpen(true);
     } catch (e: any) {
       const msg: string = e?.message || String(e);
       const code: string | undefined = e?.code;
@@ -64,19 +79,31 @@ export default function LoginPage() {
   };
 
   const completeLoginWithRole = async () => {
-    const pending = (window as any)._pendingGoogle as { email: string; displayName: string; phone?: string } | undefined;
+    const pending = (window as any)._pendingGoogle as { idToken?: string; email: string; displayName: string; phone?: string } | undefined;
     if (!pending) return setRoleModalOpen(false);
-    const { email, displayName, phone: pendingPhone } = pending;
+    const { email, displayName, phone: pendingPhone, idToken } = pending;
     try {
-      const res1 = await apiRequest("POST", "/api/auth/login", { email, name: displayName, role: selectedRole });
-      if (!res1.ok) throw new Error("Failed to establish session");
-      const res2 = await apiRequest("POST", "/api/auth/complete-profile", { name: displayName, phone: pendingPhone || "", role: selectedRole });
-      const userData = await res2.json();
-      setUser(userData);
-      toast({ title: "Welcome to EcoRide!", description: `Signed in as ${email}` });
-      if (selectedRole === "admin") setLocation("/admin");
-      else if (selectedRole === "driver") setLocation("/driver");
-      else setLocation("/rider");
+      // If we have an idToken (Google), use firebase-login; otherwise fallback to simple flow
+      if (idToken) {
+        const resp = await apiRequest('POST', '/api/auth/firebase-login', { idToken, role: selectedRole, phone: pendingPhone || '' });
+        if (!resp.ok) throw new Error('Failed to establish session');
+        const userData = await resp.json();
+        setUser(userData);
+        toast({ title: "Welcome to EcoRide!", description: `Signed in as ${userData.email}` });
+        if (selectedRole === "admin") setLocation("/admin");
+        else if (selectedRole === "driver") setLocation("/driver");
+        else setLocation("/rider");
+      } else {
+        const res1 = await apiRequest("POST", "/api/auth/login", { email, name: displayName, role: selectedRole });
+        if (!res1.ok) throw new Error("Failed to establish session");
+        const res2 = await apiRequest("POST", "/api/auth/complete-profile", { name: displayName, phone: pendingPhone || "", role: selectedRole });
+        const userData = await res2.json();
+        setUser(userData);
+        toast({ title: "Welcome to EcoRide!", description: `Signed in as ${email}` });
+        if (selectedRole === "admin") setLocation("/admin");
+        else if (selectedRole === "driver") setLocation("/driver");
+        else setLocation("/rider");
+      }
     } catch (e: any) {
       toast({ title: "Login failed", description: e.message || String(e), variant: "destructive" });
     } finally {

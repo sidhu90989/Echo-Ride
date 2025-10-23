@@ -21,11 +21,15 @@ console.log("🔧 Environment check:", {
   NODE_ENV: process.env.NODE_ENV
 });
 
-// Initialize Firebase Admin unless using SIMPLE_AUTH
-if (!SIMPLE_AUTH) {
-  if (!admin.apps.length) {
-    admin.initializeApp();
+// Initialize Firebase Admin always so we can verify ID tokens even in SIMPLE_AUTH mode
+if (!admin.apps.length) {
+  const PROJECT_ID = process.env.FIREBASE_PROJECT_ID || process.env.VITE_FIREBASE_PROJECT_ID || process.env.GOOGLE_CLOUD_PROJECT || process.env.GCLOUD_PROJECT || undefined;
+  if (!process.env.GOOGLE_CLOUD_PROJECT && PROJECT_ID) {
+    process.env.GOOGLE_CLOUD_PROJECT = PROJECT_ID;
   }
+  admin.initializeApp({
+    projectId: PROJECT_ID,
+  } as any);
 }
 
 // Initialize Stripe only if not SIMPLE_AUTH. Do not crash if key is missing;
@@ -218,6 +222,79 @@ export async function registerRoutes(app: Express): Promise<Server> {
         return res.status(500).json({ error: message });
       }
       return res.status(500).json({ error: "Internal Server Error" });
+    }
+  });
+
+  // Native Firebase login: verify Firebase ID token, create/update user, and set session
+  app.post('/api/auth/firebase-login', async (req: any, res) => {
+    try {
+      const { idToken, role, phone } = req.body || {};
+      if (!idToken) return res.status(400).json({ error: 'idToken is required' });
+
+      // Verify Firebase ID token
+      const decoded = await admin.auth().verifyIdToken(idToken);
+      const firebaseUid = decoded.uid;
+      const email = decoded.email || undefined;
+      const name = (decoded.name as string | undefined) || (email ? email.split('@')[0] + ' User' : 'EcoRide User');
+      const phoneNumber = (decoded.phone_number as string | undefined) || (typeof phone === 'string' ? phone : undefined);
+      const selectedRole = role === 'driver' || role === 'admin' ? role : 'rider';
+
+      // Ensure user exists
+      let user = await storage.getUserByFirebaseUid(firebaseUid);
+      // Fallback: if a user exists by email (from previous auth methods), link it
+      if (!user && email) {
+        const byEmail = await storage.getUserByEmail(email);
+        if (byEmail) {
+          user = await storage.updateUser(byEmail.id, { firebaseUid, phone: byEmail.phone || phoneNumber, role: byEmail.role || (selectedRole as any) });
+        }
+      }
+      if (!user) {
+        const referralCode = generateReferralCode(name);
+        user = await storage.createUser({
+          firebaseUid,
+          email: email || `${firebaseUid}@example.com`,
+          name,
+          phone: phoneNumber,
+          role: selectedRole as any,
+          referralCode,
+          ecoPoints: 0,
+          totalCO2Saved: '0',
+          isActive: true,
+        } as any);
+
+        if (selectedRole === 'driver') {
+          await storage.createDriverProfile({
+            userId: user.id,
+            vehicleType: 'e_rickshaw',
+            vehicleNumber: 'PENDING',
+            licenseNumber: 'PENDING',
+            kycStatus: 'pending',
+            rating: '5.00',
+            totalRides: 0,
+            totalEarnings: '0',
+            isAvailable: false,
+            femalePrefEnabled: false,
+          } as any);
+        }
+      } else if (phoneNumber && !user.phone) {
+        // Update phone if provided and missing
+        user = await storage.updateUser(user.id, { phone: phoneNumber });
+      }
+
+      // Establish session for hybrid flows
+      req.session.user = {
+        firebaseUid,
+        email: user.email,
+        name: user.name,
+        role: user.role,
+      };
+
+      res.json(user);
+    } catch (e: any) {
+      // eslint-disable-next-line no-console
+      console.error('[auth] /api/auth/firebase-login error:', e);
+      const msg = e?.message || 'Invalid token';
+      res.status(401).json({ error: msg });
     }
   });
 
