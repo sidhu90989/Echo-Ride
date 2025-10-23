@@ -1,4 +1,5 @@
 import { initializeApp } from "firebase/app";
+import { getAnalytics, type Analytics } from "firebase/analytics";
 import {
   getAuth,
   GoogleAuthProvider,
@@ -13,18 +14,26 @@ import {
   type User,
 } from "firebase/auth";
 
-// Clean, native Firebase config (no OIDC). Values provided by user.
+// Clean, native Firebase config (no OIDC). Updated with EcoRide project credentials.
 const firebaseConfig = {
-  apiKey: "AIzaSyAyoxCh_tJzFHwMNSX1Zs6Ez1EmYMxxUPg",
-  authDomain: "trusty-diorama-475905-c3.firebaseapp.com",
-  projectId: "trusty-diorama-475905-c3",
-  storageBucket: "trusty-diorama-475905-c3.firebasestorage.app",
-  messagingSenderId: "805719737795",
-  appId: "1:805719737795:web:7870794790bd20b2b8a976",
-};
+  apiKey: "AIzaSyD2EOQDEyeBxeFT4_rrNLejmaqBtUxyGuM",
+  authDomain: "ecoride-f86b9.firebaseapp.com",
+  projectId: "ecoride-f86b9",
+  storageBucket: "ecoride-f86b9.firebasestorage.app",
+  messagingSenderId: "937932926319",
+  appId: "1:937932926319:web:70805c9dd506c2e1f50c9a",
+  measurementId: "G-FGTJEYE2DL",
+} as const;
 
 const app = initializeApp(firebaseConfig);
 export const auth = getAuth(app);
+// Optional: Analytics (browser-only)
+let analytics: Analytics | undefined;
+try {
+  if (typeof window !== "undefined" && firebaseConfig.measurementId) {
+    analytics = getAnalytics(app);
+  }
+} catch {}
 
 // Providers
 export const googleProvider = new GoogleAuthProvider();
@@ -86,3 +95,4 @@ export async function signOut() {
 }
 
 export { app };
+export { analytics };
