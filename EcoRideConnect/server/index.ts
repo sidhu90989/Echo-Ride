@@ -1,5 +1,8 @@
 import { config } from "dotenv";
-config(); // Load environment variables from .env file
+// Only load .env in non-production to avoid overriding deployed environment
+if (process.env.NODE_ENV !== 'production') {
+  config();
+}
 
 import express, { type Request, Response, NextFunction } from "express";
 import cors from "cors";

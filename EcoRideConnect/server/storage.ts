@@ -1,5 +1,7 @@
 import { config } from "dotenv";
-config();
+if (process.env.NODE_ENV !== 'production') {
+  config();
+}
 // eslint-disable-next-line no-console
 console.log(`[storage] module initialized. SIMPLE_AUTH=${process.env.SIMPLE_AUTH} DATABASE_URL=${process.env.DATABASE_URL ? 'SET' : 'MISSING'}`);
 

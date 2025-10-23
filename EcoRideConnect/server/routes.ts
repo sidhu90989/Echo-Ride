@@ -1,5 +1,8 @@
 import { config } from "dotenv";
-config(); // Load environment variables
+// Only load .env in non-production to avoid overriding deployed environment
+if (process.env.NODE_ENV !== 'production') {
+  config();
+}
 
 import type { Express } from "express";
 import { createServer, type Server } from "http";
