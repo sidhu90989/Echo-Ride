@@ -6,6 +6,7 @@
 
 import { Firestore } from '@google-cloud/firestore';
 import { fareCalculationService, type FareBreakdown } from './fareCalculationService';
+import { pgPool } from '../config/database';
 
 interface PaymentMethod {
   type: 'GOOGLE_PAY' | 'CASH' | 'WALLET' | 'UPI';
@@ -172,6 +173,44 @@ export class PaymentService {
       };
       
       await this.firestore.collection('transactions').doc(transactionId).set(transaction);
+      try {
+        await pgPool.query(
+          `INSERT INTO transactions(id, ride_id, rider_id, driver_id, amount, method, status, transaction_id, metadata, created_at)
+           VALUES($1,$2,$3,$4,$5,$6,$7,$8,$9,$10)`,
+          [transaction.id, transaction.rideId, transaction.riderId, transaction.driverId, transaction.amount, transaction.method, transaction.status, transaction.transactionId, JSON.stringify(transaction.metadata || {}), transaction.timestamp]
+        );
+      } catch (sqlErr) {
+        console.warn('Cloud SQL insert transaction failed (non-fatal):', String(sqlErr));
+      }
+      try {
+        await pgPool.query(
+          `INSERT INTO transactions(id, ride_id, rider_id, driver_id, amount, method, status, transaction_id, metadata, created_at)
+           VALUES($1,$2,$3,$4,$5,$6,$7,$8,$9,$10)`,
+          [transaction.id, transaction.rideId, transaction.riderId, transaction.driverId, transaction.amount, transaction.method, transaction.status, transaction.transactionId, JSON.stringify(transaction.metadata || {}), transaction.timestamp]
+        );
+      } catch (sqlErr) {
+        console.warn('Cloud SQL insert transaction failed (non-fatal):', String(sqlErr));
+      }
+      try {
+        await pgPool.query(
+          `INSERT INTO transactions(id, ride_id, rider_id, driver_id, amount, method, status, transaction_id, metadata, created_at)
+           VALUES($1,$2,$3,$4,$5,$6,$7,$8,$9,$10)`,
+          [transaction.id, transaction.rideId, transaction.riderId, transaction.driverId, transaction.amount, transaction.method, transaction.status, transaction.transactionId, JSON.stringify(transaction.metadata || {}), transaction.timestamp]
+        );
+      } catch (sqlErr) {
+        console.warn('Cloud SQL insert transaction failed (non-fatal):', String(sqlErr));
+      }
+
+      // Also write to Cloud SQL transactions table when available
+      try {
+        await pgPool.query(
+          `INSERT INTO transactions(id, ride_id, rider_id, driver_id, amount, method, status, transaction_id, metadata, created_at)
+           VALUES($1,$2,$3,$4,$5,$6,$7,$8,$9,$10)`,
+          [transaction.id, transaction.rideId, transaction.riderId, transaction.driverId, transaction.amount, transaction.method, transaction.status, transaction.transactionId, JSON.stringify(transaction.metadata || {}), transaction.timestamp]
+        );
+      } catch (sqlErr) {
+        console.warn('Cloud SQL insert transaction failed (non-fatal):', String(sqlErr));
+      }
       
       // Calculate driver payout (100% in zero-commission model)
       const payout: Payout = {
@@ -186,6 +225,35 @@ export class PaymentService {
       };
       
       await this.firestore.collection('payouts').doc(payout.id).set(payout);
+      try {
+        await pgPool.query(
+          `INSERT INTO payouts(id, driver_id, ride_id, amount, platform_fee, net_amount, status, created_at)
+           VALUES($1,$2,$3,$4,$5,$6,$7,$8)`,
+          [payout.id, payout.driverId, payout.rideId, payout.amount, payout.platformFee, payout.netAmount, payout.status, payout.timestamp]
+        );
+      } catch (sqlErr) {
+        console.warn('Cloud SQL insert payout failed (non-fatal):', String(sqlErr));
+      }
+      try {
+        await pgPool.query(
+          `INSERT INTO payouts(id, driver_id, ride_id, amount, platform_fee, net_amount, status, created_at)
+           VALUES($1,$2,$3,$4,$5,$6,$7,$8)`,
+          [payout.id, payout.driverId, payout.rideId, payout.amount, payout.platformFee, payout.netAmount, payout.status, payout.timestamp]
+        );
+      } catch (sqlErr) {
+        console.warn('Cloud SQL insert payout failed (non-fatal):', String(sqlErr));
+      }
+
+        // Also insert payout into Cloud SQL when available
+        try {
+          await pgPool.query(
+            `INSERT INTO payouts(id, driver_id, ride_id, amount, platform_fee, net_amount, status, created_at)
+             VALUES($1,$2,$3,$4,$5,$6,$7,$8)`,
+            [payout.id, payout.driverId, payout.rideId, payout.amount, payout.platformFee, payout.netAmount, payout.status, payout.timestamp]
+          );
+        } catch (sqlErr) {
+          console.warn('Cloud SQL insert payout failed (non-fatal):', String(sqlErr));
+        }
       
       // Update driver wallet (add earnings)
       await this.addToWallet(ride.driverId, fare.driverEarnings);
@@ -392,7 +460,16 @@ export class PaymentService {
       };
       
       await this.firestore.collection('payouts').doc(payout.id).set(payout);
-      
+      try {
+        await pgPool.query(
+          `INSERT INTO payouts(id, driver_id, ride_id, amount, platform_fee, net_amount, status, created_at)
+           VALUES($1,$2,$3,$4,$5,$6,$7,$8)`,
+          [payout.id, payout.driverId, payout.rideId, payout.amount, payout.platformFee, payout.netAmount, payout.status, payout.timestamp]
+        );
+      } catch (sqlErr) {
+        console.warn('Cloud SQL insert payout failed (non-fatal):', String(sqlErr));
+      }
+
       await this.addToWallet(ride.driverId, fare.driverEarnings);
       
       return {
@@ -548,11 +625,18 @@ export class PaymentService {
         await this.addToWallet(transaction.riderId, refundAmount);
       }
       
-      // Update transaction status
+      // Update transaction status in Firestore
       await this.firestore
         .collection('transactions')
         .doc(transaction.id)
         .update({ status: 'REFUNDED' });
+
+      // Update transaction status in Cloud SQL if present
+      try {
+        await pgPool.query(`UPDATE transactions SET status = $1 WHERE id = $2`, ['REFUNDED', transaction.id]);
+      } catch (sqlErr) {
+        console.warn('Cloud SQL update transaction failed (non-fatal):', String(sqlErr));
+      }
       
       console.log(`✅ Refund processed: ₹${refundAmount} for ride ${rideId}`);
       
@@ -578,14 +662,35 @@ export class PaymentService {
     limit: number = 20
   ): Promise<Transaction[]> {
     try {
-      const snapshot = await this.firestore
-        .collection('transactions')
-        .where('riderId', '==', userId)
-        .orderBy('timestamp', 'desc')
-        .limit(limit)
-        .get();
-      
-      return snapshot.docs.map(doc => doc.data() as Transaction);
+      // Prefer Cloud SQL for transaction history if available
+      try {
+        const { rows } = await pgPool.query(
+          `SELECT id, ride_id, rider_id, driver_id, amount, method, status, transaction_id, metadata, created_at
+           FROM transactions WHERE rider_id = $1 ORDER BY created_at DESC LIMIT $2`,
+          [userId, limit]
+        );
+        return rows.map((r: any) => ({
+          id: r.id,
+          rideId: r.ride_id,
+          riderId: r.rider_id,
+          driverId: r.driver_id,
+          amount: parseFloat(r.amount),
+          method: r.method,
+          status: r.status,
+          transactionId: r.transaction_id,
+          timestamp: r.created_at,
+          metadata: r.metadata
+        } as Transaction));
+      } catch (sqlErr) {
+        console.warn('Cloud SQL transaction history failed, falling back to Firestore:', String(sqlErr));
+        const snapshot = await this.firestore
+          .collection('transactions')
+          .where('riderId', '==', userId)
+          .orderBy('timestamp', 'desc')
+          .limit(limit)
+          .get();
+        return snapshot.docs.map(doc => doc.data() as Transaction);
+      }
     } catch (error) {
       console.error('Get transaction history error:', error);
       return [];
