@@ -221,6 +221,76 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
+  // Firebase client login: accept a Firebase ID token, verify with Admin SDK,
+  // create or lookup the user in storage, establish a server session, and return user.
+  app.post('/api/auth/firebase-login', async (req: any, res) => {
+    try {
+      const { idToken, role } = req.body || {};
+      if (!idToken) return res.status(400).json({ error: 'idToken is required' });
+
+      // Verify ID token with Firebase Admin
+      const decoded = await admin.auth().verifyIdToken(idToken);
+      const firebaseUid = decoded.uid;
+      const email = decoded.email || undefined;
+      const name = decoded.name || undefined;
+      const phone = (decoded as any).phone_number || undefined;
+
+      // Check if user exists in storage
+      let user = await storage.getUserByFirebaseUid(firebaseUid);
+      if (!user) {
+        // Create a new user record
+        const referralCode = generateReferralCode(name || (email || 'user'));
+        user = await storage.createUser({
+          firebaseUid,
+          email: email || `${firebaseUid}@unknown`,
+          name: name || (email ? email.split('@')[0] : 'New User'),
+          phone,
+          role: (role === 'driver' || role === 'admin') ? role : 'rider',
+          referralCode,
+          ecoPoints: 0,
+          totalCO2Saved: '0',
+          isActive: true,
+        } as any);
+
+        if (user && user.role === 'driver') {
+          await storage.createDriverProfile({
+            userId: user.id,
+            vehicleType: 'e_rickshaw',
+            vehicleNumber: 'PENDING',
+            licenseNumber: 'PENDING',
+            kycStatus: 'pending',
+            rating: '5.00',
+            totalRides: 0,
+            totalEarnings: '0',
+            isAvailable: false,
+            femalePrefEnabled: false,
+          } as any);
+        }
+      } else {
+        // Update basic fields in case they're missing or changed
+        const updates: any = {};
+        if (!user.email && email) updates.email = email;
+        if (!user.name && name) updates.name = name;
+        if (!user.phone && phone) updates.phone = phone;
+        if (Object.keys(updates).length) {
+          user = await storage.updateUser(user.id, updates);
+        }
+      }
+
+      // Establish session for hybrid/simple dev usage
+      req.session.user = {
+        firebaseUid,
+        email: user.email,
+        name: user.name,
+        role: user.role,
+      };
+
+      return res.json(user);
+    } catch (e: any) {
+      return res.status(401).json({ error: e?.message || 'Invalid ID token' });
+    }
+  });
+
   // Note: OIDC verification route removed; native Firebase tokens are verified via /api/auth/verify using Firebase Admin.
 
   // Simple health endpoint

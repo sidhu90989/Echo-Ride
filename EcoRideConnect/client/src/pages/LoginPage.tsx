@@ -34,12 +34,16 @@ export default function LoginPage() {
     try {
       setVerifying(true);
       const cred = await signInWithGoogle();
-      const email = cred.user.email || `${role}@example.com`;
-      const displayName = cred.user.displayName || `${role.charAt(0).toUpperCase() + role.slice(1)} User`;
-      // Prompt for role selection after successful Google auth
-      setSelectedRole(role);
-      (window as any)._pendingGoogle = { email, displayName };
-      setRoleModalOpen(true);
+      // Send ID token to server to create session and user record
+      const idToken = await cred.user.getIdToken();
+      const resp = await apiRequest('POST', '/api/auth/firebase-login', { idToken, role });
+      if (!resp.ok) throw new Error('Server failed to verify token');
+      const userData = await resp.json();
+      setUser(userData);
+      toast({ title: 'Welcome to EcoRide!', description: `Signed in as ${userData.email}` });
+      if (userData.role === 'admin') setLocation('/admin');
+      else if (userData.role === 'driver') setLocation('/driver');
+      else setLocation('/rider');
     } catch (e: any) {
       const msg: string = e?.message || String(e);
       const code: string | undefined = e?.code;
@@ -60,13 +64,13 @@ export default function LoginPage() {
   };
 
   const completeLoginWithRole = async () => {
-    const pending = (window as any)._pendingGoogle as { email: string; displayName: string } | undefined;
+    const pending = (window as any)._pendingGoogle as { email: string; displayName: string; phone?: string } | undefined;
     if (!pending) return setRoleModalOpen(false);
-    const { email, displayName } = pending;
+    const { email, displayName, phone: pendingPhone } = pending;
     try {
       const res1 = await apiRequest("POST", "/api/auth/login", { email, name: displayName, role: selectedRole });
       if (!res1.ok) throw new Error("Failed to establish session");
-      const res2 = await apiRequest("POST", "/api/auth/complete-profile", { name: displayName, phone: "", role: selectedRole });
+      const res2 = await apiRequest("POST", "/api/auth/complete-profile", { name: displayName, phone: pendingPhone || "", role: selectedRole });
       const userData = await res2.json();
       setUser(userData);
       toast({ title: "Welcome to EcoRide!", description: `Signed in as ${email}` });
@@ -112,9 +116,16 @@ export default function LoginPage() {
       setVerifying(true);
       const cred = await confirmOTP(confirmationRef.current, otp);
       const pseudoName = `User ${phone.slice(-4)}`;
-      // After phone auth, prompt role selection
-      (window as any)._pendingGoogle = { email: `${phone.replace(/\D/g, "")}@ecoride.local`, displayName: pseudoName };
-      setRoleModalOpen(true);
+      // After phone auth, send ID token to server to create/update user and session
+      const idToken = await cred.user.getIdToken();
+      const resp = await apiRequest('POST', '/api/auth/firebase-login', { idToken, role });
+      if (!resp.ok) throw new Error('Server failed to verify phone token');
+      const userData = await resp.json();
+      setUser(userData);
+      toast({ title: 'Welcome to EcoRide!', description: `Signed in as ${userData.phone || userData.email}` });
+      if (userData.role === 'admin') setLocation('/admin');
+      else if (userData.role === 'driver') setLocation('/driver');
+      else setLocation('/rider');
     } catch (e: any) {
       toast({ title: "OTP verification failed", description: e.message || String(e), variant: "destructive" });
     } finally {
