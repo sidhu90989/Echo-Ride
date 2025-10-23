@@ -93,20 +93,3 @@ VITE_FIREBASE_PROJECT_ID=your-project-id
 VITE_FIREBASE_STORAGE_BUCKET=your-project.appspot.com
 SIMPLE_AUTH=true
 ```
-
-### Optional: OIDC (Google) verification on backend
-
-If you want the backend to verify Google OIDC ID tokens directly (useful for redirect flows/popups blocked environments), set these. Defaults target Google if not provided.
-
-```env
-# Acceptable issuer(s). Google commonly uses either form.
-OIDC_ISSUER=https://accounts.google.com,accounts.google.com
-
-# JWKS endpoint for signature verification (Google certs).
-OIDC_JWKS_URI=https://www.googleapis.com/oauth2/v3/certs
-
-# Your Google OAuth Client ID (audience check). Optional but recommended.
-OIDC_CLIENT_ID=YOUR_GOOGLE_OAUTH_CLIENT_ID
-```
-
-The frontend finalizes redirect sign-ins at `/auth/callback`, which posts the Google `id_token` to `/api/auth/oidc-verify`. The server creates a session and either routes the user to their dashboard (if they exist) or back to `/login` to complete profile and choose a role.
