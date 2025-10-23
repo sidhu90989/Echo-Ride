@@ -1015,7 +1015,8 @@ console.log("\u{1F527} Environment check:", {
   NODE_ENV: process.env.NODE_ENV
 });
 if (!admin.apps.length) {
-  const PROJECT_ID = process.env.FIREBASE_PROJECT_ID || process.env.VITE_FIREBASE_PROJECT_ID || process.env.GOOGLE_CLOUD_PROJECT || process.env.GCLOUD_PROJECT || void 0;
+  const PROJECT_ID = process.env.FIREBASE_PROJECT_ID || process.env.VITE_FIREBASE_PROJECT_ID || process.env.GOOGLE_CLOUD_PROJECT || process.env.GCLOUD_PROJECT || // Final fallback to current public project id to prevent runtime failures on cold starts
+  "trusty-diorama-475905-c3";
   if (!process.env.GOOGLE_CLOUD_PROJECT && PROJECT_ID) {
     process.env.GOOGLE_CLOUD_PROJECT = PROJECT_ID;
   }
