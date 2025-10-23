@@ -38,6 +38,8 @@ interface FareBreakdown {
   driverEarnings: number;
 }
 
+export type { FareBreakdown };
+
 export class FareCalculationService {
   private firestore: Firestore;
   private pricingCache: Map<string, VehiclePricing> = new Map();
