@@ -12,7 +12,8 @@ services:
       npm ci --include=dev
       # Ensure client builds with correct base path on Render (serves from '/')
       VITE_BASE_PATH=/ npm run build
-    startCommand: npm run start:migrate
+  # Only run migrations if a DATABASE_URL is provided; otherwise start in SIMPLE_AUTH memory mode
+  startCommand: bash -lc 'if [ -n "$DATABASE_URL" ]; then npm run db:push; fi; npm run start'
     # Health check hits the API health endpoint (server answers when ready)
     healthCheckPath: /api/health
     # Environment
