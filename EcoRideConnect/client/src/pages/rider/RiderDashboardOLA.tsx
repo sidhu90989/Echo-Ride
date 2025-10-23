@@ -33,6 +33,8 @@ import {
   initializeMap,
   getCurrentLocation,
   createUserMarker,
+  createPickupMarker,
+  createDropMarker,
   initAutocomplete,
   calculateRoute,
   getETA,
@@ -76,6 +78,8 @@ export default function RiderDashboard() {
   const mapRef = useRef<HTMLDivElement>(null);
   const mapInstanceRef = useRef<google.maps.Map | null>(null);
   const userMarkerRef = useRef<google.maps.Marker | null>(null);
+  const pickupMarkerRef = useRef<google.maps.Marker | null>(null);
+  const dropMarkerRef = useRef<google.maps.Marker | null>(null);
   const pickupInputRef = useRef<HTMLInputElement>(null);
   const dropInputRef = useRef<HTMLInputElement>(null);
   
@@ -225,10 +229,30 @@ export default function RiderDashboard() {
         setVehicleOptions(options);
         setBookingStep('vehicle');
         
-        // Show route on map
+        // Show route on map with pickup/drop markers
         if (mapInstanceRef.current) {
           const route = await calculateRoute(pickupLocation, dropLocation);
           renderRoute(mapInstanceRef.current, route);
+          
+          // Add pickup marker
+          if (pickupMarkerRef.current) {
+            pickupMarkerRef.current.setMap(null);
+          }
+          pickupMarkerRef.current = createPickupMarker(
+            mapInstanceRef.current,
+            pickupLocation,
+            pickupLocation.address
+          );
+          
+          // Add drop marker
+          if (dropMarkerRef.current) {
+            dropMarkerRef.current.setMap(null);
+          }
+          dropMarkerRef.current = createDropMarker(
+            mapInstanceRef.current,
+            dropLocation,
+            dropLocation.address
+          );
         }
       } catch (error) {
         console.error('Failed to calculate route:', error);

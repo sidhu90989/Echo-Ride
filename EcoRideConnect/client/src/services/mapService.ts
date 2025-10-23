@@ -102,14 +102,14 @@ export const OLA_MAP_STYLES: google.maps.MapTypeStyle[] = [
   },
 ];
 
-// Custom marker icons for different vehicle types
+// Custom marker icons for different vehicle types (SVG)
 export const VEHICLE_ICONS = {
-  auto: '/icons/auto-marker.png',
-  bike: '/icons/bike-marker.png',
-  car: '/icons/car-marker.png',
-  user: '/icons/user-marker.png',
-  pickup: '/icons/pickup-marker.png',
-  drop: '/icons/drop-marker.png',
+  auto: '/markers/auto.svg',
+  bike: '/markers/bike.svg',
+  car: '/markers/car.svg',
+  user: '/markers/user-location.svg',
+  pickup: '/markers/pickup.svg',
+  drop: '/markers/drop.svg',
 };
 
 /**
@@ -398,7 +398,7 @@ export const startLocationTracking = (
 };
 
 /**
- * Create user location marker (blue dot)
+ * Create user location marker (blue dot with custom SVG)
  */
 export const createUserMarker = (
   map: google.maps.Map,
@@ -406,12 +406,9 @@ export const createUserMarker = (
 ): google.maps.Marker => {
   return createMarker(map, position, {
     icon: {
-      path: google.maps.SymbolPath.CIRCLE,
-      scale: 8,
-      fillColor: '#4285F4',
-      fillOpacity: 1,
-      strokeColor: '#ffffff',
-      strokeWeight: 2,
+      url: VEHICLE_ICONS.user,
+      scaledSize: new google.maps.Size(48, 48),
+      anchor: new google.maps.Point(24, 24), // Center the icon
     },
     title: 'Your Location',
   });
@@ -428,9 +425,46 @@ export const createDriverMarker = (
   return createMarker(map, position, {
     icon: {
       url: VEHICLE_ICONS[vehicleType],
-      scaledSize: new google.maps.Size(40, 40),
+      scaledSize: new google.maps.Size(48, 48),
+      anchor: new google.maps.Point(24, 40), // Bottom center
     },
     title: `${vehicleType.toUpperCase()} Driver`,
+  });
+};
+
+/**
+ * Create pickup location marker
+ */
+export const createPickupMarker = (
+  map: google.maps.Map,
+  position: LatLng,
+  title?: string
+): google.maps.Marker => {
+  return createMarker(map, position, {
+    icon: {
+      url: VEHICLE_ICONS.pickup,
+      scaledSize: new google.maps.Size(48, 64),
+      anchor: new google.maps.Point(24, 54), // Bottom center of pin
+    },
+    title: title || 'Pickup Location',
+  });
+};
+
+/**
+ * Create drop location marker
+ */
+export const createDropMarker = (
+  map: google.maps.Map,
+  position: LatLng,
+  title?: string
+): google.maps.Marker => {
+  return createMarker(map, position, {
+    icon: {
+      url: VEHICLE_ICONS.drop,
+      scaledSize: new google.maps.Size(48, 64),
+      anchor: new google.maps.Point(24, 54), // Bottom center of pin
+    },
+    title: title || 'Drop Location',
   });
 };
 
