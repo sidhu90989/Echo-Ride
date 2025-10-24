@@ -1,5 +1,6 @@
 import { useEffect, useMemo, useState } from "react";
 import { APIProvider, Map, Marker, useMap } from "@vis.gl/react-google-maps";
+import { MapLibreRideMap, type LatLng as ML } from "./MapLibreRideMap";
 
 export type LatLng = { lat: number; lng: number };
 
@@ -23,6 +24,22 @@ export function RideMap({
   path?: LatLng[];
 }) {
   const ORS_KEY = (import.meta as any).env?.VITE_ORS_API_KEY as string | undefined;
+  const useMapLibre = ((import.meta as any).env?.VITE_USE_MAPLIBRE ?? 'false') === 'true' || !apiKey;
+
+  // Fallback: render MapLibre map when Google key is missing or MapLibre explicitly requested
+  if (useMapLibre) {
+    return (
+      <MapLibreRideMap
+        pickup={pickup as ML | undefined}
+        dropoff={dropoff as ML | undefined}
+        rider={rider as ML | undefined}
+        driver={driver as ML | undefined}
+        height={height}
+        autoFit={autoFit}
+        path={path as ML[] | undefined}
+      />
+    );
+  }
 
   const center = useMemo<LatLng>(() => {
     if (rider) return rider;

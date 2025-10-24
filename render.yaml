@@ -12,8 +12,8 @@ services:
       npm ci --include=dev
       # Ensure client builds with correct base path on Render (serves from '/')
       VITE_BASE_PATH=/ npm run build
-  # Only run migrations if a DATABASE_URL is provided; otherwise start in SIMPLE_AUTH memory mode
-  startCommand: bash -lc 'if [ -n "$DATABASE_URL" ]; then npm run db:push; fi; npm run start'
+    # Only run migrations if a DATABASE_URL is provided; otherwise start in SIMPLE_AUTH memory mode
+    startCommand: bash -lc 'if [ -n "$DATABASE_URL" ]; then npm run db:push; fi; npm run start'
     # Health check hits the API health endpoint (server answers when ready)
     healthCheckPath: /api/health
     # Environment
@@ -28,6 +28,18 @@ services:
         generateValue: true
       - key: VITE_BASE_PATH
         value: /
+      # Client/Maps configuration
+      # IMPORTANT: Set this in Render Dashboard to enable Google Maps on the client
+      - key: VITE_GOOGLE_MAPS_API_KEY
+        # value: "YOUR_GOOGLE_MAPS_BROWSER_KEY"  # <-- set this in Render after deploy
+        sync: false
+      # Optional: Use MapLibre fallback (no API key needed) in preview environments
+      - key: VITE_USE_MAPLIBRE
+        value: 'false'
+      # Server-side (Directions/Geocoding) can also use the same key if enabled server APIs
+      - key: GOOGLE_MAPS_API_KEY
+        # value: "YOUR_GOOGLE_MAPS_SERVER_KEY"  # optional
+        sync: false
       # Run in memory mode on Render unless a DATABASE_URL is provided
       # This prevents crashes when Neon isn't configured yet
       - key: SIMPLE_AUTH
