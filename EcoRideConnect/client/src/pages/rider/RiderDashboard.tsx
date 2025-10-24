@@ -105,6 +105,7 @@ export default function RiderDashboard() {
   const [currentRide, setCurrentRide] = useState<RideDetails | null>(null);
   const [showMenu, setShowMenu] = useState(false);
   const [isLoadingLocation, setIsLoadingLocation] = useState(true);
+  const [recentering, setRecentering] = useState(false);
   
   // Initialize map
   useEffect(() => {
@@ -240,6 +241,28 @@ export default function RiderDashboard() {
       });
     }
   }, [mapLoaded]);
+
+  // Detect My Location button handler
+  const detectMyLocation = async () => {
+    try {
+      setRecentering(true);
+      const position = await getCurrentLocation();
+      const loc = { lat: position.coords.latitude, lng: position.coords.longitude };
+      setUserLocation(loc);
+      const addr = await reverseGeocode(loc);
+      setPickupLocation({ ...loc, address: addr });
+      setPickupText(addr);
+      mapInstanceRef.current?.setCenter(loc as any);
+      userMarkerRef.current?.setPosition(loc as any);
+      if (pickupDragMarkerRef.current) {
+        pickupDragMarkerRef.current.setPosition(loc as any);
+      }
+    } catch {
+      // ignore errors
+    } finally {
+      setRecentering(false);
+    }
+  };
   
   // Calculate vehicle options when both locations are set
   useEffect(() => {
@@ -552,13 +575,18 @@ export default function RiderDashboard() {
               </div>
               
               <div className="flex-1 space-y-3">
-                <Input
-                  ref={pickupInputRef}
-                  placeholder="Pickup location"
-                  defaultValue={pickupLocation?.address || ''}
-                  onChange={(e) => setPickupText(e.target.value)}
-                  className="bg-gray-100 border-none"
-                />
+                <div className="flex items-center gap-2">
+                  <Input
+                    ref={pickupInputRef}
+                    placeholder="Pickup location"
+                    defaultValue={pickupLocation?.address || ''}
+                    onChange={(e) => setPickupText(e.target.value)}
+                    className="bg-gray-100 border-none"
+                  />
+                  <Button variant="secondary" size="sm" onClick={detectMyLocation} disabled={recentering}>
+                    {recentering ? 'Locating…' : 'My location'}
+                  </Button>
+                </div>
                 
                 <Input
                   ref={dropInputRef}

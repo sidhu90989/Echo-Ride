@@ -49,6 +49,7 @@ export default function ConfirmRidePage() {
   const [vehicleType, setVehicleType] = useState<"e_rickshaw" | "e_scooter" | "cng_car">("e_rickshaw");
   const [searchPhase, setSearchPhase] = useState<{ phase: "initial" | "expanded"; radiusKm: number } | null>(null);
   const [rideId, setRideId] = useState<string>("");
+  const [femaleOnly, setFemaleOnly] = useState<boolean>(false);
 
   // Mock ride data - in real app, this would come from route params
   const rideData = {
@@ -129,7 +130,7 @@ export default function ConfirmRidePage() {
         dropoffLat: dropoff.lat,
         dropoffLng: dropoff.lng,
         vehicleType,
-        femalePrefRequested: false,
+        femalePrefRequested: femaleOnly,
       });
       const data = await res.json();
       if (data?.id) setRideId(data.id);
@@ -269,6 +270,27 @@ export default function ConfirmRidePage() {
                   <p className="text-sm text-muted-foreground">Drop-off location</p>
                 </div>
               </div>
+
+              {/* Female Driver Only toggle (visible for female riders) */}
+              {user?.gender === 'female' && (
+                <div className="flex items-center justify-between pt-2">
+                  <div>
+                    <p className="font-medium">Female driver only</p>
+                    <p className="text-xs text-muted-foreground">We’ll try to match you with a verified female driver</p>
+                  </div>
+                  <button
+                    type="button"
+                    onClick={() => setFemaleOnly((v) => !v)}
+                    className={`w-12 h-7 rounded-full transition-colors ${femaleOnly ? 'bg-primary' : 'bg-muted'}`}
+                    aria-pressed={femaleOnly}
+                    aria-label="Toggle female driver preference"
+                  >
+                    <span
+                      className={`block w-6 h-6 bg-background rounded-full shadow transform transition-transform translate-y-0.5 ${femaleOnly ? 'translate-x-6' : 'translate-x-1'}`}
+                    />
+                  </button>
+                </div>
+              )}
             </div>
           </Card>
 

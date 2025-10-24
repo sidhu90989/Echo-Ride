@@ -244,7 +244,19 @@ export async function registerRoutes(app: Express): Promise<Server> {
       const firebaseUid = decoded.uid;
       const email = decoded.email || undefined;
       const name = (decoded.name as string | undefined) || (email ? email.split('@')[0] + ' User' : 'RideConnect User');
-      const phoneNumber = (decoded.phone_number as string | undefined) || (typeof phone === 'string' ? phone : undefined);
+      // Normalize phone so empty strings don't violate unique constraint
+      const normalizePhone = (p?: string | null): string | null => {
+        if (!p) return null;
+        const trimmed = String(p).trim();
+        if (!trimmed) return null;
+        // keep only digits, preserve a single leading + if present
+        const cleanedDigits = trimmed.replace(/[^0-9+]/g, '');
+        if (cleanedDigits.startsWith('+')) {
+          return '+' + cleanedDigits.slice(1).replace(/[^0-9]/g, '');
+        }
+        return cleanedDigits.replace(/[^0-9]/g, '');
+      };
+      const phoneNumber = normalizePhone((decoded.phone_number as string | undefined) || (typeof phone === 'string' ? phone : undefined));
       const selectedRole = role === 'driver' || role === 'admin' ? role : 'rider';
 
       // Ensure user exists
@@ -300,7 +312,9 @@ export async function registerRoutes(app: Express): Promise<Server> {
       // eslint-disable-next-line no-console
       console.error('[auth] /api/auth/firebase-login error:', e);
       const msg = e?.message || 'Invalid token';
-      res.status(401).json({ error: msg });
+      const isUnique = e?.code === '23505' || /users_phone_unique|unique constraint.*phone/i.test(String(e?.message || ''));
+      if (isUnique) return res.status(409).json({ error: 'Phone already in use. Try logging in with that phone or remove it from another account.' });
+      return res.status(401).json({ error: msg });
     }
   });
 
@@ -316,7 +330,17 @@ export async function registerRoutes(app: Express): Promise<Server> {
       const firebaseUid = decoded.uid;
       const email = decoded.email || undefined;
       const name = decoded.name || undefined;
-      const phone = (decoded as any).phone_number || undefined;
+      const normalizePhone = (p?: string | null): string | null => {
+        if (!p) return null;
+        const trimmed = String(p).trim();
+        if (!trimmed) return null;
+        const cleanedDigits = trimmed.replace(/[^0-9+]/g, '');
+        if (cleanedDigits.startsWith('+')) {
+          return '+' + cleanedDigits.slice(1).replace(/[^0-9]/g, '');
+        }
+        return cleanedDigits.replace(/[^0-9]/g, '');
+      };
+      const phone = normalizePhone((decoded as any).phone_number || undefined);
 
       // Check if user exists in storage
       let user = await storage.getUserByFirebaseUid(firebaseUid);
@@ -368,6 +392,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
       return res.json(user);
     } catch (e: any) {
+      const isUnique = e?.code === '23505' || /users_phone_unique|unique constraint.*phone/i.test(String(e?.message || ''));
+      if (isUnique) return res.status(409).json({ error: 'Phone already in use. Try logging in with that phone or remove it from another account.' });
       return res.status(401).json({ error: e?.message || 'Invalid ID token' });
     }
   });

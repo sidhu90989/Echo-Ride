@@ -4,11 +4,14 @@ import "maplibre-gl/dist/maplibre-gl.css";
 
 export type LatLng = { lat: number; lng: number };
 
+export type SimpleDriver = { id: string; lat: number; lng: number };
+
 export function MapLibreRideMap({
   pickup,
   dropoff,
   rider,
   driver,
+  drivers,
   height = 320,
   autoFit = false,
   path,
@@ -17,6 +20,7 @@ export function MapLibreRideMap({
   dropoff?: LatLng;
   rider?: LatLng | null;
   driver?: LatLng | null;
+  drivers?: SimpleDriver[];
   height?: number;
   autoFit?: boolean;
   path?: LatLng[];
@@ -129,7 +133,22 @@ export function MapLibreRideMap({
     mapMarker("dropoff", dropoff, "D");
     mapMarker("rider", rider || undefined, "R");
     mapMarker("driver", driver || undefined, "DRV");
-  }, [pickup?.lat, pickup?.lng, dropoff?.lat, dropoff?.lng, rider?.lat, rider?.lng, driver?.lat, driver?.lng]);
+
+    // Render multiple driver markers when provided
+    const driverKeys = new Set<string>();
+    (drivers || []).forEach((d) => {
+      const key = `driver-${d.id}`;
+      driverKeys.add(key);
+      mapMarker(key, { lat: d.lat, lng: d.lng }, "DRV");
+    });
+    // Clean up driver markers that no longer exist
+    Object.keys(markersRef.current).forEach((k) => {
+      if (k.startsWith("driver-") && !driverKeys.has(k)) {
+        markersRef.current[k].remove();
+        delete markersRef.current[k];
+      }
+    });
+  }, [pickup?.lat, pickup?.lng, dropoff?.lat, dropoff?.lng, rider?.lat, rider?.lng, driver?.lat, driver?.lng, JSON.stringify(drivers)]);
 
   // Polyline as GeoJSON layer
   useEffect(() => {

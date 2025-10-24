@@ -15,7 +15,7 @@ function interpolatePath(a: LatLng, b: LatLng, steps = 60): LatLng[] {
 }
 
 export function HomeMapHero() {
-  const apiKey = import.meta.env.VITE_GOOGLE_MAPS_API_KEY as string | undefined;
+  // MapComponent now falls back to MapLibre automatically when no Google key
 
   // Demo route between two Delhi points
   const pickup = useMemo<LatLng>(() => ({ lat: 28.6139, lng: 77.2090 }), []);
@@ -50,19 +50,6 @@ export function HomeMapHero() {
     }
     return () => { if (watchId !== null) navigator.geolocation.clearWatch(watchId); };
   }, []);
-
-  if (!apiKey) {
-    return (
-      <div className="aspect-[4/3] rounded-2xl bg-card border shadow-xl overflow-hidden">
-        <div className="absolute inset-0 bg-gradient-to-br from-primary/10 to-sky-blue/10" />
-        <div className="absolute inset-0 p-6 flex items-end">
-          <div className="bg-background/70 backdrop-blur rounded-xl p-4 border text-sm text-muted-foreground">
-            Add VITE_GOOGLE_MAPS_API_KEY to show live preview map
-          </div>
-        </div>
-      </div>
-    );
-  }
 
   return (
     <div className="rounded-2xl border shadow-xl overflow-hidden">

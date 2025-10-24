@@ -6,6 +6,7 @@ import {
   useMap,
 } from '@vis.gl/react-google-maps';
 import {DriverMarkers} from './DriverMarkers';
+import { MapLibreRideMap, type SimpleDriver } from './maps/MapLibreRideMap';
 import {calculateDistance, fitMapBounds} from '../utils/mapUtils';
 
 export type VehicleType = 'E-Rickshaw' | 'E-Scooter' | 'CNG';
@@ -222,16 +223,42 @@ export const MapComponentInner: React.FC<Omit<MapComponentProps, 'apiKey'>> = ({
 
 export const MapComponent: React.FC<MapComponentProps> = ({apiKey, ...rest}) => {
   const key = apiKey || (import.meta as any).env?.VITE_GOOGLE_MAPS_API_KEY;
-  if (!key) {
+  const useMapLibre = ((import.meta as any).env?.VITE_USE_MAPLIBRE ?? 'false') === 'true' || !key;
+
+  if (useMapLibre) {
+    // Basic wrapper to reuse the same props for a MapLibre fallback
+    const {
+      drivers = [],
+      pickup = null,
+      drop = null,
+      style,
+      drawRoute,
+      initialCenter,
+      initialZoom,
+      onPickupSelected,
+      onDropSelected,
+      className,
+      ...restProps
+    } = rest as MapComponentProps & any;
+
+  const height = typeof style?.height === 'number' ? style.height : 320;
+  const driversArr: Driver[] = (drivers as Driver[]) || [];
+  const mlDrivers: SimpleDriver[] = driversArr.map((d: Driver) => ({ id: d.id, lat: d.lat, lng: d.lng }));
+    // Note: MapLibre fallback doesn't support click-to-select pickup/drop; show map with markers and optional route
     return (
-      <div className="flex items-center justify-center w-full h-full p-6">
-        <div className="text-center">
-          <div className="font-semibold mb-2">Google Maps API key missing</div>
-          <div className="text-sm text-gray-600">Set VITE_GOOGLE_MAPS_API_KEY in your .env to render the map.</div>
-        </div>
+      <div className={className} style={{ width: '100%', height: height }}>
+        <MapLibreRideMap
+          pickup={pickup || initialCenter || undefined}
+          dropoff={drop || undefined}
+          drivers={mlDrivers}
+          autoFit={true}
+          height={height}
+          path={undefined}
+        />
       </div>
     );
   }
+
   return (
     <APIProvider apiKey={key} solutionChannel="eco-ride-map-component">
       <MapComponentInner {...rest} />
