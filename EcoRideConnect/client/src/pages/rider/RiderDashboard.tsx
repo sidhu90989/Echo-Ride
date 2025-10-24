@@ -88,6 +88,7 @@ export default function RiderDashboard() {
   const pickupMarkerRef = useRef<google.maps.Marker | null>(null);
   const dropMarkerRef = useRef<google.maps.Marker | null>(null);
   const driverLiveMarkerRef = useRef<google.maps.Marker | null>(null);
+  const pickupDragMarkerRef = useRef<google.maps.Marker | null>(null);
   const pickupInputRef = useRef<HTMLInputElement>(null);
   const dropInputRef = useRef<HTMLInputElement>(null);
   
@@ -151,6 +152,40 @@ export default function RiderDashboard() {
           // Get address for pickup
           const address = await reverseGeocode(userLoc);
           setPickupLocation({ ...userLoc, address });
+
+          // Allow dragging pickup on map in 'location' step
+          pickupDragMarkerRef.current = new google.maps.Marker({
+            map,
+            position: userLoc,
+            draggable: true,
+            title: 'Set Pickup',
+            icon: {
+              url: '/markers/pickup.svg',
+              scaledSize: new google.maps.Size(36, 48),
+              anchor: new google.maps.Point(18, 40),
+            },
+          });
+          pickupDragMarkerRef.current.addListener('dragend', async () => {
+            const pos = pickupDragMarkerRef.current!.getPosition();
+            if (!pos) return;
+            const loc = { lat: pos.lat(), lng: pos.lng() };
+            try {
+              const addr = await reverseGeocode(loc);
+              setPickupLocation({ ...loc, address: addr });
+              setPickupText(addr);
+            } catch {}
+          });
+          // Clicking the map moves the pickup marker
+          map.addListener('click', async (e: google.maps.MapMouseEvent) => {
+            if (!e.latLng) return;
+            const loc = { lat: e.latLng.lat(), lng: e.latLng.lng() };
+            pickupDragMarkerRef.current?.setPosition(loc);
+            try {
+              const addr = await reverseGeocode(loc);
+              setPickupLocation({ ...loc, address: addr });
+              setPickupText(addr);
+            } catch {}
+          });
           
           setMapLoaded(true);
         }
@@ -247,6 +282,11 @@ export default function RiderDashboard() {
         
         // Show route on map with pickup/drop markers
         if (mapInstanceRef.current) {
+          // Remove draggable pickup marker when routing
+          if (pickupDragMarkerRef.current) {
+            pickupDragMarkerRef.current.setMap(null);
+            pickupDragMarkerRef.current = null;
+          }
           const route = await calculateRoute(pickupLocation, dropLocation);
           renderRoute(mapInstanceRef.current, route);
           

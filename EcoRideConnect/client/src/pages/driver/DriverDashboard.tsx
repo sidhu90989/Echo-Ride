@@ -38,6 +38,7 @@ import {
   initializeMap,
   getCurrentLocation,
   createUserMarker,
+  startLocationTracking,
   calculateRoute,
   renderRoute,
   reverseGeocode,
@@ -95,6 +96,7 @@ export default function DriverDashboard() {
   const [requestCountdown, setRequestCountdown] = useState(30);
   const [isLoadingLocation, setIsLoadingLocation] = useState(true);
   const [locationTrackingCleanup, setLocationTrackingCleanup] = useState<(() => void) | null>(null);
+  const latestLocRef = useRef<LatLng | null>(null);
   
   // Driver stats (would come from API in production)
   const [stats, setStats] = useState<DriverStats>({
@@ -243,9 +245,17 @@ export default function DriverDashboard() {
     updateDriverStatus(user.id, isOnline);
     
     if (isOnline) {
-      // Start sending location updates every 10 seconds
-      const cleanup = startDriverLocationTracking(user.id, () => driverLocation);
-      setLocationTrackingCleanup(() => cleanup);
+      // Start device geolocation watch and periodic socket updates
+      const stopGeo = startLocationTracking((loc) => {
+        setDriverLocation(loc);
+      });
+      const stopInterval = startDriverLocationTracking(user.id, () => latestLocRef.current || driverLocation);
+      setLocationTrackingCleanup(() => () => { stopGeo(); stopInterval(); });
+      // Send immediate location once when going online
+      const first = latestLocRef.current || driverLocation;
+      if (first) {
+        sendDriverLocationUpdate(user.id, first);
+      }
       
       toast({
         title: 'You are now online',
@@ -365,10 +375,13 @@ export default function DriverDashboard() {
     });
   };
   
-  // Update driver marker position
+  // Update driver marker position and latest location ref
   useEffect(() => {
     if (driverMarkerRef.current && driverLocation) {
       animateMarker(driverMarkerRef.current, driverLocation);
+    }
+    if (driverLocation) {
+      latestLocRef.current = driverLocation;
     }
   }, [driverLocation]);
   

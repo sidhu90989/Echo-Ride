@@ -18,6 +18,7 @@ export interface MarkerOptions {
   icon?: string | google.maps.Icon | google.maps.Symbol;
   title?: string;
   animation?: google.maps.Animation;
+  draggable?: boolean;
 }
 
 // OLA-style dark map theme
@@ -183,6 +184,11 @@ export const clearLocationWatch = (watchId: number): void => {
   navigator.geolocation.clearWatch(watchId);
 };
 
+// ---------------- Performance caches (routes, matrix) ----------------
+const _routeCache = new Map<string, google.maps.DirectionsResult>();
+const _matrixCache = new Map<string, { distance: number; duration: number }>();
+const keyFor = (o: LatLng, d: LatLng) => `${o.lat.toFixed(5)},${o.lng.toFixed(5)}->${d.lat.toFixed(5)},${d.lng.toFixed(5)}`;
+
 /**
  * Calculate route between origin and destination
  */
@@ -190,6 +196,9 @@ export const calculateRoute = async (
   origin: LatLng,
   destination: LatLng
 ): Promise<google.maps.DirectionsResult> => {
+  const cacheKey = keyFor(origin, destination);
+  const cached = _routeCache.get(cacheKey);
+  if (cached) return cached;
   const directionsService = new google.maps.DirectionsService();
   
   return new Promise((resolve, reject) => {
@@ -206,6 +215,7 @@ export const calculateRoute = async (
       },
       (result, status) => {
         if (status === google.maps.DirectionsStatus.OK && result) {
+          _routeCache.set(cacheKey, result);
           resolve(result);
         } else {
           reject(new Error(`Directions request failed: ${status}`));
@@ -216,6 +226,51 @@ export const calculateRoute = async (
 };
 
 /**
+ * Use Distance Matrix for quick ETA/distance with caching, fallback to directions
+ */
+export const getDistanceAndDuration = async (
+  origin: LatLng,
+  destination: LatLng
+): Promise<{ distance: number; duration: number }> => {
+  const cacheKey = keyFor(origin, destination);
+  const cached = _matrixCache.get(cacheKey);
+  if (cached) return cached;
+
+  try {
+    const svc = new google.maps.DistanceMatrixService();
+    const res = await new Promise<google.maps.DistanceMatrixResponse>((resolve, reject) => {
+      svc.getDistanceMatrix(
+        {
+          origins: [origin],
+          destinations: [destination],
+          travelMode: google.maps.TravelMode.DRIVING,
+          drivingOptions: { departureTime: new Date(), trafficModel: google.maps.TrafficModel.BEST_GUESS },
+          region: 'in' as any,
+        } as any,
+        (r, status) => {
+          if (status === google.maps.DistanceMatrixStatus.OK && r) resolve(r);
+          else reject(new Error(String(status)));
+        }
+      );
+    });
+    const element = res.rows?.[0]?.elements?.[0];
+    const distance = element?.distance?.value ?? 0;
+    const duration = element?.duration_in_traffic?.value ?? element?.duration?.value ?? 0;
+    const value = { distance, duration };
+    _matrixCache.set(cacheKey, value);
+    return value;
+  } catch {
+    const route = await calculateRoute(origin, destination);
+    const leg = route.routes[0].legs[0];
+    const distance = leg.distance?.value || 0;
+    const duration = leg.duration?.value || 0;
+    const value = { distance, duration };
+    _matrixCache.set(cacheKey, value);
+    return value;
+  }
+};
+
+/**
  * Get estimated time of arrival (in seconds)
  */
 export const getETA = async (
@@ -223,8 +278,8 @@ export const getETA = async (
   destination: LatLng
 ): Promise<number> => {
   try {
-    const route = await calculateRoute(origin, destination);
-    return route.routes[0].legs[0].duration?.value || 0;
+    const { duration } = await getDistanceAndDuration(origin, destination);
+    return duration;
   } catch (error) {
     console.error('Failed to get ETA:', error);
     return 0;
@@ -239,8 +294,8 @@ export const getDistance = async (
   destination: LatLng
 ): Promise<number> => {
   try {
-    const route = await calculateRoute(origin, destination);
-    return route.routes[0].legs[0].distance?.value || 0;
+    const { distance } = await getDistanceAndDuration(origin, destination);
+    return distance;
   } catch (error) {
     console.error('Failed to get distance:', error);
     return 0;
@@ -304,6 +359,7 @@ export const createMarker = (
     icon: options?.icon,
     title: options?.title,
     animation: options?.animation,
+    draggable: options?.draggable ?? false,
   });
 };
 
