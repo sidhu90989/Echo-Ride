@@ -29,9 +29,11 @@ import {
   Settings,
   LogOut,
   Wallet,
-  AlertCircle
+  AlertCircle,
+  Download
 } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
+import { usePWAInstall } from '@/hooks/usePWAInstall';
 import { 
   initializeMap,
   getCurrentLocation,
@@ -72,6 +74,7 @@ export default function DriverDashboard() {
   const { user, signOut } = useAuth();
   const [, setLocation] = useLocation();
   const { toast } = useToast();
+  const { canInstall, installed, isIOS, isStandalone, promptInstall } = usePWAInstall();
   
   // Map refs
   const mapRef = useRef<HTMLDivElement>(null);
@@ -419,6 +422,26 @@ export default function DriverDashboard() {
           </Button>
           
           <div className="flex items-center gap-3">
+            {(canInstall || isIOS) && !installed && !isStandalone && (
+              <Button
+                size="sm"
+                variant="outline"
+                className="rounded-full bg-background shadow-lg"
+                onClick={async () => {
+                  if (isIOS) {
+                    toast({
+                      title: 'Add to Home Screen',
+                      description: 'Use the Share button → Add to Home Screen',
+                    });
+                  } else {
+                    await promptInstall();
+                  }
+                }}
+              >
+                <Download className="h-4 w-4 mr-2" />
+                Install App
+              </Button>
+            )}
             {/* Online/Offline Switch */}
             {driverStatus !== 'on_ride' && (
               <div className="flex items-center gap-2 bg-background rounded-full px-4 py-2 shadow-lg">

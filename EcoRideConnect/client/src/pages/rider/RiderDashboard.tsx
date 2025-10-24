@@ -26,9 +26,11 @@ import {
   User,
   Wallet,
   Settings,
-  LogOut
+  LogOut,
+  Download
 } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
+import { usePWAInstall } from '@/hooks/usePWAInstall';
 import { 
   initializeMap,
   getCurrentLocation,
@@ -75,6 +77,7 @@ export default function RiderDashboard() {
   const { user, signOut } = useAuth();
   const [, setLocation] = useLocation();
   const { toast } = useToast();
+  const { canInstall, installed, isIOS, isStandalone, promptInstall } = usePWAInstall();
   
   // Map refs
   const mapRef = useRef<HTMLDivElement>(null);
@@ -382,9 +385,31 @@ export default function RiderDashboard() {
             <Menu className="h-5 w-5" />
           </Button>
           
-          <div className="flex items-center gap-2 bg-background rounded-full px-4 py-2 shadow-lg">
-            <Wallet className="h-4 w-4 text-green-600" />
-            <span className="text-sm font-semibold">₹0</span>
+          <div className="flex items-center gap-2">
+            {(canInstall || isIOS) && !installed && !isStandalone && (
+              <Button
+                size="sm"
+                variant="outline"
+                className="rounded-full bg-background shadow-lg"
+                onClick={async () => {
+                  if (isIOS) {
+                    toast({
+                      title: 'Add to Home Screen',
+                      description: 'Use the Share button → Add to Home Screen',
+                    });
+                  } else {
+                    await promptInstall();
+                  }
+                }}
+              >
+                <Download className="h-4 w-4 mr-2" />
+                Install App
+              </Button>
+            )}
+            <div className="flex items-center gap-2 bg-background rounded-full px-4 py-2 shadow-lg">
+              <Wallet className="h-4 w-4 text-green-600" />
+              <span className="text-sm font-semibold">₹0</span>
+            </div>
           </div>
         </div>
       </div>

@@ -33,9 +33,11 @@ import {
   Settings,
   LogOut,
   BarChart3,
-  FileText
+  FileText,
+  Download
 } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
+import { usePWAInstall } from '@/hooks/usePWAInstall';
 import { 
   initializeMap,
   createDriverMarker,
@@ -78,6 +80,7 @@ export default function AdminDashboard() {
   const { user, signOut } = useAuth();
   const [, setLocation] = useLocation();
   const { toast } = useToast();
+  const { canInstall, installed, isIOS, isStandalone, promptInstall } = usePWAInstall();
   
   // Map refs
   const mapRef = useRef<HTMLDivElement>(null);
@@ -428,6 +431,25 @@ export default function AdminDashboard() {
         </div>
         
         <div className="flex items-center gap-2">
+          {(canInstall || isIOS) && !installed && !isStandalone && (
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={async () => {
+                if (isIOS) {
+                  toast({
+                    title: 'Add to Home Screen',
+                    description: 'Use the Share button → Add to Home Screen',
+                  });
+                } else {
+                  await promptInstall();
+                }
+              }}
+            >
+              <Download className="h-4 w-4 mr-2" />
+              Install App
+            </Button>
+          )}
           <Button
             variant="outline"
             size="sm"
