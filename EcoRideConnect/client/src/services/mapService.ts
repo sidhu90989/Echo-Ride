@@ -520,8 +520,9 @@ export const loadMapsAPI = (apiKey: string): Promise<void> => {
       return;
     }
     
-    const script = document.createElement('script');
-    script.src = `https://maps.googleapis.com/maps/api/js?key=${apiKey}&libraries=places,geometry`;
+  const script = document.createElement('script');
+  // include visualization for heatmaps in driver/admin dashboards
+  script.src = `https://maps.googleapis.com/maps/api/js?key=${apiKey}&libraries=places,geometry,visualization`;
     script.async = true;
     script.defer = true;
     
@@ -530,4 +531,33 @@ export const loadMapsAPI = (apiKey: string): Promise<void> => {
     
     document.head.appendChild(script);
   });
+};
+
+/**
+ * Create or update a Heatmap layer (requires visualization library)
+ */
+export const upsertHeatmap = (
+  map: google.maps.Map,
+  existing: google.maps.visualization.HeatmapLayer | null,
+  points: Array<LatLng & { weight?: number }>,
+  options?: { radius?: number; opacity?: number }
+): google.maps.visualization.HeatmapLayer => {
+  const mvcArray = new google.maps.MVCArray<google.maps.LatLng>(
+    points.map((p) => new google.maps.LatLng(p.lat, p.lng))
+  );
+  if (existing) {
+    existing.setData(mvcArray);
+    if (options?.radius !== undefined) existing.set('radius', options.radius);
+    if (options?.opacity !== undefined) existing.set('opacity', options.opacity);
+    existing.setMap(map);
+    return existing;
+  }
+  const layer = new google.maps.visualization.HeatmapLayer({
+    data: mvcArray,
+    radius: options?.radius ?? 32,
+    opacity: options?.opacity ?? 0.6,
+    dissipating: true,
+  });
+  layer.setMap(map);
+  return layer;
 };

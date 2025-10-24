@@ -9,6 +9,7 @@
     "start": "NODE_ENV=production node dist/index.js",
     "start:migrate": "npm run db:push && NODE_ENV=production node dist/index.js",
     "check": "tsc",
+  "test:smoke": "cross-env PORT=5100 SIMPLE_AUTH=true ALLOW_SIMPLE_AUTH_ROUTES=true BASE_URL=http://127.0.0.1:5100 tsx tests/smoke-e2e.ts",
     "db:push": "drizzle-kit push",
     "seed": "tsx server/seed-runner.ts",
     "migrate": "tsx migrations/run-migrations.ts"
@@ -98,6 +99,7 @@
     "zod-validation-error": "^3.4.0"
   },
   "devDependencies": {
+    "cross-env": "^7.0.3",
     "@replit/vite-plugin-cartographer": "^0.3.1",
     "@replit/vite-plugin-dev-banner": "^0.1.1",
     "@replit/vite-plugin-runtime-error-modal": "^0.0.3",

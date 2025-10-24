@@ -46,6 +46,7 @@ import {
   isMapsLoaded,
   type LatLng
 } from '@/services/mapService';
+import { MarkerClusterer } from '@googlemaps/markerclusterer';
 import {
   initSocket,
   requestAllDrivers,
@@ -73,7 +74,7 @@ interface DriverWithMarker extends DriverLocation {
   lastUpdate: number;
 }
 
-export default function AdminDashboardOLA() {
+export default function AdminDashboard() {
   const { user, signOut } = useAuth();
   const [, setLocation] = useLocation();
   const { toast } = useToast();
@@ -83,6 +84,7 @@ export default function AdminDashboardOLA() {
   const mapInstanceRef = useRef<google.maps.Map | null>(null);
   const driverMarkersRef = useRef<Map<string, DriverWithMarker>>(new Map());
   const rideRoutesRef = useRef<Map<string, google.maps.DirectionsRenderer>>(new Map());
+  const clustererRef = useRef<MarkerClusterer | null>(null);
   
   // State
   const [mapLoaded, setMapLoaded] = useState(false);
@@ -219,7 +221,7 @@ export default function AdminDashboardOLA() {
       }
     });
     
-    // Add or update markers
+  // Add or update markers
     driversData.forEach(driver => {
       const existingDriver = driverMarkersRef.current.get(driver.driverId);
       const driverStatus = driver.isAvailable ? 'online' : 'offline';
@@ -266,6 +268,20 @@ export default function AdminDashboardOLA() {
         });
       }
     });
+
+    // Update clustering
+    const markers = Array.from(driverMarkersRef.current.values())
+      .map(d => d.marker)
+      .filter((m): m is google.maps.Marker => !!m);
+    if (!clustererRef.current) {
+      clustererRef.current = new MarkerClusterer({
+        map: mapInstanceRef.current,
+        markers,
+      });
+    } else {
+      clustererRef.current.clearMarkers();
+      clustererRef.current.addMarkers(markers);
+    }
   };
   
   // Update ride routes on map

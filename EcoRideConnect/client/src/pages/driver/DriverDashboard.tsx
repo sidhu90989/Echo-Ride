@@ -68,7 +68,7 @@ interface DriverStats {
   totalRides: number;
 }
 
-export default function DriverDashboardOLA() {
+export default function DriverDashboard() {
   const { user, signOut } = useAuth();
   const [, setLocation] = useLocation();
   const { toast } = useToast();
@@ -78,6 +78,7 @@ export default function DriverDashboardOLA() {
   const mapInstanceRef = useRef<google.maps.Map | null>(null);
   const driverMarkerRef = useRef<google.maps.Marker | null>(null);
   const routeRendererRef = useRef<google.maps.DirectionsRenderer | null>(null);
+  const heatmapRef = useRef<google.maps.visualization.HeatmapLayer | null>(null);
   
   // State
   const [mapLoaded, setMapLoaded] = useState(false);
@@ -156,6 +157,39 @@ export default function DriverDashboardOLA() {
     
     initMap();
   }, []);
+
+  // Heatmap for high-demand areas when online and idle
+  useEffect(() => {
+    if (!mapLoaded || !mapInstanceRef.current) return;
+    if (driverStatus === 'online' && !currentRide && driverLocation) {
+      // Generate simple synthetic hotspots around the driver location
+      const base = driverLocation;
+      const jitter = (n: number) => (Math.random() - 0.5) * n;
+      const points = Array.from({ length: 30 }).map(() => ({
+        lat: base.lat + jitter(0.01),
+        lng: base.lng + jitter(0.01),
+      }));
+      const mvcArray = new google.maps.MVCArray(
+        points.map(p => new google.maps.LatLng(p.lat, p.lng))
+      );
+      if (!heatmapRef.current) {
+        // @ts-ignore - visualization namespace available via script param
+        heatmapRef.current = new google.maps.visualization.HeatmapLayer({
+          data: mvcArray,
+          radius: 32,
+          opacity: 0.6,
+        });
+      } else {
+        heatmapRef.current.setData(mvcArray);
+      }
+      heatmapRef.current.setMap(mapInstanceRef.current);
+    } else {
+      if (heatmapRef.current) {
+        heatmapRef.current.setMap(null);
+        heatmapRef.current = null;
+      }
+    }
+  }, [mapLoaded, driverStatus, currentRide, driverLocation]);
   
   // Initialize Socket.IO and handle ride requests
   useEffect(() => {

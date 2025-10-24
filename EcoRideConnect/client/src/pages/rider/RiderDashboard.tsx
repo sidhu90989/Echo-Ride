@@ -35,6 +35,7 @@ import {
   createUserMarker,
   createPickupMarker,
   createDropMarker,
+  createMarker,
   initAutocomplete,
   calculateRoute,
   getETA,
@@ -44,6 +45,7 @@ import {
   reverseGeocode,
   loadMapsAPI,
   isMapsLoaded,
+  animateMarker,
   type LatLng
 } from '@/services/mapService';
 import {
@@ -80,6 +82,7 @@ export default function RiderDashboard() {
   const userMarkerRef = useRef<google.maps.Marker | null>(null);
   const pickupMarkerRef = useRef<google.maps.Marker | null>(null);
   const dropMarkerRef = useRef<google.maps.Marker | null>(null);
+  const driverLiveMarkerRef = useRef<google.maps.Marker | null>(null);
   const pickupInputRef = useRef<HTMLInputElement>(null);
   const dropInputRef = useRef<HTMLInputElement>(null);
   
@@ -129,6 +132,10 @@ export default function RiderDashboard() {
             zoom: 15
           });
           mapInstanceRef.current = map;
+          // Traffic layer for live conditions
+          // @ts-ignore - visualization not required here
+          const trafficLayer = new google.maps.TrafficLayer();
+          trafficLayer.setMap(map);
           
           // Add user marker
           const marker = createUserMarker(map, userLoc);
@@ -296,6 +303,23 @@ export default function RiderDashboard() {
         setDropLocation(null);
         setSelectedVehicle(null);
         setCurrentRide(null);
+      }
+    });
+
+    // Live driver location updates
+    onDriverLocationUpdate((loc) => {
+      if (!mapInstanceRef.current) return;
+      if (!driverLiveMarkerRef.current) {
+        driverLiveMarkerRef.current = createMarker(mapInstanceRef.current, loc, {
+          icon: {
+            url: '/markers/car.svg',
+            scaledSize: new google.maps.Size(40, 40),
+            anchor: new google.maps.Point(20, 20)
+          },
+          title: 'Driver'
+        });
+      } else {
+        animateMarker(driverLiveMarkerRef.current, loc);
       }
     });
     
