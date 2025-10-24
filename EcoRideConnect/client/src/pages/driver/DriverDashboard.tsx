@@ -613,37 +613,21 @@ export default function DriverDashboardOLA() {
               <TrendingUp className="mr-2 h-4 w-4" />
               Earnings
             </Button>
-            
+
             <Button variant="ghost" className="w-full justify-start" onClick={() => {
               setShowMenu(false);
-              setLocation('/driver/history');
+              setLocation('/driver/ride-management');
             }}>
               <History className="mr-2 h-4 w-4" />
-              Ride History
+              Ride Management
             </Button>
-            
+
             <Button variant="ghost" className="w-full justify-start" onClick={() => {
               setShowMenu(false);
               setLocation('/driver/profile');
             }}>
               <User className="mr-2 h-4 w-4" />
-              Profile
-            </Button>
-            
-            <Button variant="ghost" className="w-full justify-start" onClick={() => {
-              setShowMenu(false);
-              setLocation('/driver/wallet');
-            }}>
-              <Wallet className="mr-2 h-4 w-4" />
-              Wallet
-            </Button>
-            
-            <Button variant="ghost" className="w-full justify-start" onClick={() => {
-              setShowMenu(false);
-              setLocation('/driver/settings');
-            }}>
-              <Settings className="mr-2 h-4 w-4" />
-              Settings
+              Profile & Settings
             </Button>
             
             <hr className="my-2" />

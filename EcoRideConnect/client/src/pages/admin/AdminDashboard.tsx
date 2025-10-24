@@ -693,29 +693,29 @@ export default function AdminDashboardOLA() {
               <BarChart3 className="mr-2 h-4 w-4" />
               Analytics
             </Button>
-            
+
             <Button variant="ghost" className="w-full justify-start" onClick={() => {
               setShowMenu(false);
-              setLocation('/admin/reports');
+              setLocation('/admin/payments');
+            }}>
+              <IndianRupee className="mr-2 h-4 w-4" />
+              Payments & Commission
+            </Button>
+
+            <Button variant="ghost" className="w-full justify-start" onClick={() => {
+              setShowMenu(false);
+              setLocation('/admin/offers');
             }}>
               <FileText className="mr-2 h-4 w-4" />
-              Reports
+              Offers & Notifications
             </Button>
-            
+
             <Button variant="ghost" className="w-full justify-start" onClick={() => {
               setShowMenu(false);
-              setLocation('/admin/drivers');
+              setLocation('/admin/users');
             }}>
               <Users className="mr-2 h-4 w-4" />
-              Manage Drivers
-            </Button>
-            
-            <Button variant="ghost" className="w-full justify-start" onClick={() => {
-              setShowMenu(false);
-              setLocation('/admin/settings');
-            }}>
-              <Settings className="mr-2 h-4 w-4" />
-              Settings
+              Manage Users & Drivers
             </Button>
             
             <hr className="my-2" />

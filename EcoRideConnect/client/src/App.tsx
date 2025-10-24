@@ -16,7 +16,7 @@ if (import.meta.env.DEV) {
 // Pages
 import LoginPage from "@/pages/LoginPage";
 import HomePage from "@/pages/common/HomePage";
-import RiderDashboard from "@/pages/rider/RiderDashboard";
+import RiderDashboard from "@/pages/rider/ComboDashboard";
 import RideHistoryPage from "@/pages/rider/RideHistoryPage";
 import RewardsPage from "@/pages/rider/RewardsPage";
 import ConfirmRidePage from "@/pages/rider/ConfirmRidePage";
@@ -25,17 +25,17 @@ import PaymentPage from "@/pages/rider/PaymentPage";
 import RatingPage from "@/pages/rider/RatingPage";
 import WalletPage from "@/pages/rider/WalletPage";
 import ProfilePage from "@/pages/rider/ProfilePage";
-import DriverDashboard from "@/pages/driver/DriverDashboard";
+import DriverDashboard from "@/pages/driver/ComboDashboard";
 import RideManagementPage from "@/pages/driver/RideManagementPage";
 import EarningsInsightsPage from "@/pages/driver/EarningsInsightsPage";
 import ProfileVerificationPage from "@/pages/driver/ProfileVerificationPage";
-import AdminDashboard from "@/pages/admin/AdminDashboard";
+import AdminDashboard from "@/pages/admin/ComboDashboard";
 import NotFoundPage from "@/pages/NotFoundPage";
 
-// OLA-Style Dashboards
-import RiderDashboardOLA from "@/pages/rider/RiderDashboardOLA";
-import DriverDashboardOLA from "@/pages/driver/DriverDashboardOLA";
-import AdminDashboardOLA from "@/pages/admin/AdminDashboardOLA";
+// OLA-Style Dashboards (deprecated: routed to Combo as well for backward links)
+import RiderDashboardOLA from "@/pages/rider/ComboDashboard";
+import DriverDashboardOLA from "@/pages/driver/ComboDashboard";
+import AdminDashboardOLA from "@/pages/admin/ComboDashboard";
 import RideTrackPage from "@/pages/rider/RideTrackPage";
 import DriveRidePage from "@/pages/driver/DriveRidePage";
 import RideDetailsPage from "@/pages/rider/RideDetailsPage";
@@ -109,7 +109,7 @@ function Router() {
       <Route path="/rider/wallet-offers">
         <ProtectedRoute component={WalletOffersPage} allowedRoles={["rider"]} />
       </Route>
-      <Route path="/rider/profile">
+      <Route path="/rider/settings">
         <ProtectedRoute component={ProfileSettingsPage} allowedRoles={["rider"]} />
       </Route>
 
