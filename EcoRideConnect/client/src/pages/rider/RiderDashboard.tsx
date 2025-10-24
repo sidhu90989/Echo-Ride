@@ -46,6 +46,7 @@ import {
   renderRoute,
   reverseGeocode,
   geocodeAddress,
+  searchPlaceInIndia,
   loadMapsAPI,
   isMapsLoaded,
   animateMarker,
@@ -355,7 +356,20 @@ export default function RiderDashboard() {
 
       let updatedPickup = pickupLocation;
       if (!updatedPickup && pickupText.trim()) {
-        const coords = await geocodeAddress(pickupText.trim());
+        // Try geocoding within India
+        let coords: LatLng | null = null;
+        try {
+          coords = await geocodeAddress(pickupText.trim());
+        } catch {}
+        // Fallback: Places text search biased near current map center
+        if (!coords) {
+          const bias = mapInstanceRef.current?.getCenter();
+          coords = await searchPlaceInIndia(
+            pickupText.trim(),
+            bias ? { lat: bias.lat(), lng: bias.lng() } : userLocation || undefined
+          );
+        }
+        if (!coords) throw new Error('pickup not found');
         const address = pickupText.trim();
         updatedPickup = { ...coords, address };
         setPickupLocation(updatedPickup);
@@ -363,7 +377,18 @@ export default function RiderDashboard() {
 
       let updatedDrop = dropLocation;
       if (!updatedDrop && dropText.trim()) {
-        const coords = await geocodeAddress(dropText.trim());
+        let coords: LatLng | null = null;
+        try {
+          coords = await geocodeAddress(dropText.trim());
+        } catch {}
+        if (!coords) {
+          const bias = mapInstanceRef.current?.getCenter();
+          coords = await searchPlaceInIndia(
+            dropText.trim(),
+            bias ? { lat: bias.lat(), lng: bias.lng() } : userLocation || undefined
+          );
+        }
+        if (!coords) throw new Error('drop not found');
         const address = dropText.trim();
         updatedDrop = { ...coords, address };
         setDropLocation(updatedDrop);
@@ -382,7 +407,7 @@ export default function RiderDashboard() {
     } catch (e) {
       toast({
         title: 'Address not found',
-        description: 'Please select a suggestion or try a more specific address.',
+        description: 'Please select a suggestion or try a more specific address. You can include city/area to refine.',
         variant: 'destructive'
       });
     }

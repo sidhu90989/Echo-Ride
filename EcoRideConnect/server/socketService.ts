@@ -84,6 +84,10 @@ const onlineDrivers = new Map<string, {
   lastUpdate: number;
 }>();
 
+// In-memory driver traces (last N points) for live path/history visualizations
+const driverTraces = new Map<string, Array<{ lat: number; lng: number; timestamp: number }>>();
+const TRACE_LIMIT = 500;
+
 const activeRides = new Map<string, {
   rideId: string;
   riderId: string;
@@ -146,6 +150,44 @@ export function initializeSocketIO(httpServer: Server) {
     // ==================== DRIVER EVENTS ====================
     
     if (userType === 'driver') {
+      // Backward-compat: accept generic client events and map to namespaced ones
+      socket.on('driver_status_update', async (data: { driverId: string; isAvailable: boolean; location?: DriverLocation }) => {
+        try {
+          if (data?.isAvailable) {
+            // Bring driver online and store initial location if provided
+            const initialLoc: DriverLocation = data.location || onlineDrivers.get(userId)?.location || { lat: 0, lng: 0 };
+            onlineDrivers.set(userId, {
+              socketId: socket.id,
+              userId,
+              location: initialLoc,
+              status: 'online',
+              lastUpdate: Date.now(),
+            });
+            platformMetrics.activeDrivers = onlineDrivers.size;
+            io.to('admin-room').emit('driver:status_changed', { driverId: userId, status: 'online', location: initialLoc });
+          } else {
+            onlineDrivers.delete(userId);
+            platformMetrics.activeDrivers = onlineDrivers.size;
+            io.to('admin-room').emit('driver:status_changed', { driverId: userId, status: 'offline' });
+          }
+        } catch (err) {
+          console.warn('driver_status_update handling failed:', err);
+        }
+      });
+      socket.on('driver_location_update', (data: { driverId: string; location: DriverLocation; timestamp?: number }) => {
+        // Handle inline (do not re-emit)
+        const driver = onlineDrivers.get(userId);
+        if (driver) {
+          driver.location = data.location;
+          driver.lastUpdate = Date.now();
+          const arr = driverTraces.get(userId) || [];
+          arr.push({ lat: data.location.lat, lng: data.location.lng, timestamp: Date.now() });
+          if (arr.length > TRACE_LIMIT) arr.splice(0, arr.length - TRACE_LIMIT);
+          driverTraces.set(userId, arr);
+          io.to('admin-room').emit('driver:location_update', { driverId: userId, location: data.location });
+        }
+      });
+
       // Driver comes online
       socket.on('driver:online', async (data: { location: DriverLocation }) => {
         onlineDrivers.set(userId, {
@@ -205,6 +247,12 @@ export function initializeSocketIO(httpServer: Server) {
         if (driver) {
           driver.location = data.location;
           driver.lastUpdate = Date.now();
+
+          // Append to in-memory trace
+          const arr = driverTraces.get(userId) || [];
+          arr.push({ lat: data.location.lat, lng: data.location.lng, timestamp: Date.now() });
+          if (arr.length > TRACE_LIMIT) arr.splice(0, arr.length - TRACE_LIMIT);
+          driverTraces.set(userId, arr);
           
           // If driver is on a ride, update rider
           activeRides.forEach((ride, rideId) => {
@@ -221,6 +269,27 @@ export function initializeSocketIO(httpServer: Server) {
             location: data.location,
           });
         }
+      });
+
+      // Admin/debug: provide all online drivers snapshot
+      socket.on('request_all_drivers', () => {
+        const snapshot = Array.from(onlineDrivers.values()).map((d) => ({
+          id: d.userId,
+          name: '',
+          phone: '',
+          vehicleType: '',
+          vehicleNumber: '',
+          rating: 0,
+          location: d.location,
+          status: d.status,
+        }));
+        socket.emit('all_drivers_locations', snapshot as any);
+      });
+
+      // Optional: return recent trace for a driver
+      socket.on('request_driver_trace', (data: { driverId: string }) => {
+        const items = driverTraces.get(data.driverId) || [];
+        socket.emit('driver_trace', { driverId: data.driverId, points: items });
       });
 
       // Driver accepts ride

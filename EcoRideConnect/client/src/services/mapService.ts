@@ -347,7 +347,8 @@ export const geocodeAddress = async (address: string): Promise<LatLng> => {
   const geocoder = new google.maps.Geocoder();
   
   return new Promise((resolve, reject) => {
-    geocoder.geocode({ address }, (results, status) => {
+    // Bias geocoding to India for better locality resolution
+    geocoder.geocode({ address, region: 'in' }, (results, status) => {
       if (status === google.maps.GeocoderStatus.OK && results && results[0]) {
         const location = results[0].geometry.location;
         resolve({ lat: location.lat(), lng: location.lng() });
@@ -522,7 +523,8 @@ export const loadMapsAPI = (apiKey: string): Promise<void> => {
     
   const script = document.createElement('script');
   // include visualization for heatmaps in driver/admin dashboards
-  script.src = `https://maps.googleapis.com/maps/api/js?key=${apiKey}&libraries=places,geometry,visualization`;
+  // Region/language tuned for India for better address/places quality
+  script.src = `https://maps.googleapis.com/maps/api/js?key=${apiKey}&libraries=places,geometry,visualization&region=in&language=en-IN`;
     script.async = true;
     script.defer = true;
     
@@ -560,4 +562,37 @@ export const upsertHeatmap = (
   });
   layer.setMap(map);
   return layer;
+};
+
+/**
+ * Lightweight fallback search for Indian places when user types locality names
+ * Uses PlacesService.textSearch with an optional bias around provided location
+ */
+export const searchPlaceInIndia = async (
+  query: string,
+  biasLocation?: LatLng
+): Promise<LatLng | null> => {
+  if (!isMapsLoaded()) throw new Error('Maps API not loaded');
+  const service = new google.maps.places.PlacesService(document.createElement('div'));
+
+  return new Promise((resolve, reject) => {
+    const request: google.maps.places.TextSearchRequest = {
+      query,
+      // Bias to India
+      region: 'in' as any,
+      // If available, search within ~25km radius of bias point
+      ...(biasLocation
+        ? { location: new google.maps.LatLng(biasLocation.lat, biasLocation.lng), radius: 25000 }
+        : {}),
+    } as any;
+
+    service.textSearch(request, (results, status) => {
+      if (status === google.maps.places.PlacesServiceStatus.OK && results && results[0]) {
+        const loc = results[0].geometry?.location;
+        if (loc) return resolve({ lat: loc.lat(), lng: loc.lng() });
+      }
+      // Not found under text search
+      resolve(null);
+    });
+  });
 };
