@@ -20,7 +20,7 @@ https://<your-codespace>-5000.app.github.dev
 
 Health: GET `/api/health` → `{ ok: true, mode: "full" | "simple" }`
 
-Tip: If you don’t have a Google Maps key, set `VITE_USE_MAPLIBRE=true` and optionally `VITE_ORS_API_KEY` for routing.
+Tip: Set `VITE_GOOGLE_MAPS_API_KEY` to enable maps in the client.
 
 ## 🧱 Project structure
 ```
@@ -44,11 +44,10 @@ npm install
 ```
 
  - Maps: Google Maps via @vis.gl/react-google-maps
-	 - Optional routing via OpenRouteService when `VITE_ORS_API_KEY` is set (no change to basemap)
+ 
 
 - Quick demo (memory mode)
  # VITE_GOOGLE_MAPS_API_KEY=your-google-maps-key
- # VITE_ORS_API_KEY=your-openrouteservice-key  # enables serverless routing for polylines
 	- Use session-based simple auth and in-memory storage
 ```env
 # Quick demo defaults
@@ -79,10 +78,8 @@ COOKIE_SECURE=true
 # CORS if serving frontend from a separate origin (e.g., Vercel)
 # FRONTEND_ORIGIN=https://your-frontend.example.com
 
-# Maps (optional)
+# Maps
 # VITE_GOOGLE_MAPS_API_KEY=your-google-maps-key
-# VITE_ORS_API_KEY=your-openrouteservice-key
-# VITE_USE_MAPLIBRE=true
 
 # Stripe (optional)
 # STRIPE_SECRET_KEY=sk_live_or_test

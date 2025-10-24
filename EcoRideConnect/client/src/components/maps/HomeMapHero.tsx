@@ -15,7 +15,7 @@ function interpolatePath(a: LatLng, b: LatLng, steps = 60): LatLng[] {
 }
 
 export function HomeMapHero() {
-  // MapComponent now falls back to MapLibre automatically when no Google key
+  // Maps use Google only; set VITE_GOOGLE_MAPS_API_KEY for the client
 
   // Demo route between two Delhi points
   const pickup = useMemo<LatLng>(() => ({ lat: 28.6139, lng: 77.2090 }), []);
