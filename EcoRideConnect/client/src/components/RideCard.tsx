@@ -64,21 +64,7 @@ export function RideCard({ ride, onClick }: RideCardProps) {
           )}
         </div>
 
-        {ride.co2Saved && (
-          <div className="flex items-center gap-2 p-3 bg-eco-mint dark:bg-eco-dark-green/20 rounded-md">
-            <Leaf className="h-4 w-4 text-primary" />
-            <span className="text-sm font-medium text-primary">
-              {Number(ride.co2Saved).toFixed(2)} kg CO₂ saved
-            </span>
-            {ride.ecoPointsEarned && (
-              <span className="text-sm text-muted-foreground">
-                +{ride.ecoPointsEarned} points
-              </span>
-            )}
-          </div>
-        )}
-
-        {ride.driverName && (
+        {ride.status === "completed" && (
           <div className="text-sm text-muted-foreground">
             Driver: {ride.driverName} {ride.driverRating && `⭐ ${ride.driverRating}`}
           </div>

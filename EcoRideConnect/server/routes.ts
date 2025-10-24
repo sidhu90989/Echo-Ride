@@ -196,8 +196,6 @@ export async function registerRoutes(app: Express): Promise<Server> {
         phone,
         role,
         referralCode,
-        ecoPoints: 0,
-        totalCO2Saved: '0',
         isActive: true,
       });
 
@@ -267,8 +265,6 @@ export async function registerRoutes(app: Express): Promise<Server> {
           phone: phoneNumber,
           role: selectedRole as any,
           referralCode,
-          ecoPoints: 0,
-          totalCO2Saved: '0',
           isActive: true,
         } as any);
 
@@ -334,8 +330,6 @@ export async function registerRoutes(app: Express): Promise<Server> {
           phone,
           role: (role === 'driver' || role === 'admin') ? role : 'rider',
           referralCode,
-          ecoPoints: 0,
-          totalCO2Saved: '0',
           isActive: true,
         } as any);
 
@@ -440,27 +434,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  app.get("/api/rider/badges", verifyFirebaseToken, async (req: any, res) => {
-    try {
-      const user = await storage.getUserByFirebaseUid(req.firebaseUid);
-      if (!user) {
-        return res.status(404).json({ error: 'User not found' });
-      }
-      
-      const allBadges = await storage.getAllBadges();
-      const userBadges = await storage.getUserBadges(user.id);
-      const earnedBadgeIds = new Set(userBadges.map(ub => ub.badgeId));
-      
-      const badgesWithStatus = allBadges.map(badge => ({
-        ...badge,
-        earned: earnedBadgeIds.has(badge.id),
-      }));
-      
-      res.json(badgesWithStatus);
-    } catch (error: any) {
-      res.status(500).json({ error: error.message });
-    }
-  });
+  // Badge endpoint removed - no longer tracking badges
 
   // Ride routes - RIDERS ONLY can create rides
   app.post("/api/rides", verifyFirebaseToken, async (req: any, res) => {
@@ -492,8 +466,6 @@ export async function registerRoutes(app: Express): Promise<Server> {
       // Calculate simple estimated fare and distance
       const distance = 5.5; // Mock distance in km
       const estimatedFare = vehicleType === 'e_scooter' ? 30 : vehicleType === 'e_rickshaw' ? 45 : 80;
-      const co2Saved = distance * 0.12; // Mock CO2 calculation
-      const ecoPoints = Math.floor(distance * 10);
 
       const ride = await storage.createRide({
         riderId: user.id,
@@ -508,8 +480,6 @@ export async function registerRoutes(app: Express): Promise<Server> {
         status: 'pending',
         distance: distance.toString(),
         estimatedFare: estimatedFare.toString(),
-        co2Saved: co2Saved.toString(),
-        ecoPointsEarned: ecoPoints,
       });
 
       // Kick off intelligent matching with 5km initial radius and 7km expansion
@@ -604,15 +574,6 @@ export async function registerRoutes(app: Express): Promise<Server> {
         actualFare: actualFare || ride.estimatedFare,
         completedAt: new Date(),
       });
-
-      // Update rider eco points and CO2
-      const rider = await storage.getUser(ride.riderId);
-      if (rider) {
-        await storage.updateUser(ride.riderId, {
-          ecoPoints: rider.ecoPoints + (ride.ecoPointsEarned || 0),
-          totalCO2Saved: (Number(rider.totalCO2Saved) + Number(ride.co2Saved || 0)).toString(),
-        });
-      }
 
       // Update driver stats
       if (ride.driverId) {

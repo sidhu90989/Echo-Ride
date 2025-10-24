@@ -10,7 +10,6 @@ import { Switch } from "@/components/ui/switch";
 import { Badge } from "@/components/ui/badge";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { VehicleCard } from "@/components/VehicleCard";
-import { EcoImpactCard } from "@/components/EcoImpactCard";
 import { LoadingSpinner } from "@/components/LoadingSpinner";
 import { 
   MapPin, 
@@ -75,9 +74,7 @@ export default function RiderDashboard() {
       fare: 80,
       eta: 7,
       capacity: "4 seats",
-      eco_rating: 4.2,
-      description: "Comfortable CNG car for longer distances",
-      co2_savings: "65% less emissions"
+      description: "Comfortable CNG car for longer distances"
     },
     {
       id: "e_rickshaw" as VehicleType,
@@ -86,9 +83,7 @@ export default function RiderDashboard() {
       fare: 25,
       eta: 3,
       capacity: "3 seats",
-      eco_rating: 4.8,
-      description: "Eco-friendly electric rickshaw",
-      co2_savings: "Zero emissions"
+      description: "Electric rickshaw for local travel"
     },
     {
       id: "e_scooter" as VehicleType,
@@ -97,17 +92,13 @@ export default function RiderDashboard() {
       fare: 30,
       eta: 5,
       capacity: "2 seats",
-      eco_rating: 4.6,
-      description: "Quick electric scooter rides",
-      co2_savings: "Zero emissions"
+      description: "Quick electric scooter rides"
     }
   ];
 
   // Mock rider stats
   const mockStats: RiderStats = {
     totalRides: 127,
-    ecoPoints: 1250,
-    totalCO2Saved: 89.5,
     badgesEarned: 3,
   };
 
@@ -148,8 +139,8 @@ export default function RiderDashboard() {
               <Menu className="h-5 w-5" />
             </Button>
             <div>
-              <h1 className="font-serif text-xl font-bold">EcoRide</h1>
-              <p className="text-xs text-muted-foreground">Sustainable transport</p>
+              <h1 className="font-serif text-xl font-bold">RideConnect</h1>
+              <p className="text-xs text-muted-foreground">Smart transport</p>
             </div>
           </div>
           <div className="flex items-center gap-2">
@@ -212,9 +203,9 @@ export default function RiderDashboard() {
                 <div className="flex flex-col items-start gap-1">
                   <div className="flex items-center gap-2">
                     <Gift className="h-4 w-4" />
-                    <span className="font-medium">Eco Rewards</span>
+                    <span className="font-medium">Rewards</span>
                   </div>
-                  <span className="text-xs text-muted-foreground">Earn green points</span>
+                  <span className="text-xs text-muted-foreground">Earn points</span>
                 </div>
               </Button>
               
@@ -280,9 +271,9 @@ export default function RiderDashboard() {
                 <div className="flex flex-col items-start gap-1">
                   <div className="flex items-center gap-2">
                     <TrendingUp className="h-4 w-4" />
-                    <span className="font-medium">Eco Leaderboard</span>
+                    <span className="font-medium">Leaderboard</span>
                   </div>
-                  <span className="text-xs text-muted-foreground">Environmental impact</span>
+                  <span className="text-xs text-muted-foreground">Top riders</span>
                 </div>
               </Button>
             </div>
@@ -301,19 +292,11 @@ export default function RiderDashboard() {
           </Card>
         )}
 
-        {/* Eco Impact Stats */}
-        <EcoImpactCard
-          co2Saved={Number((stats?.totalCO2Saved ?? mockStats.totalCO2Saved) as number)}
-          ecoPoints={stats?.ecoPoints ?? mockStats.ecoPoints}
-          ridesCount={stats?.totalRides ?? mockStats.totalRides}
-          nextBadgePoints={2000}
-        />
-
         {/* Quick Booking */}
         <Card className="p-6">
           <div className="flex items-center gap-3 mb-4">
             <MapPin className="h-6 w-6 text-primary" />
-            <h2 className="font-serif text-xl font-semibold">Book Your Eco Ride</h2>
+            <h2 className="font-serif text-xl font-semibold">Book Your Ride</h2>
           </div>
           
           <div className="space-y-4">
@@ -343,14 +326,14 @@ export default function RiderDashboard() {
               onClick={handleBookRide}
             >
               <Navigation className="h-4 w-4 mr-2" />
-              Find Eco Rides
+              Find Rides
             </Button>
           </div>
         </Card>
 
         {/* Vehicle Options */}
         <div className="space-y-4">
-          <h3 className="font-serif text-lg font-semibold">Choose Your Green Ride</h3>
+          <h3 className="font-serif text-lg font-semibold">Choose Your Ride</h3>
           <div className="grid grid-cols-1 gap-4">
             {vehicleOptions.map((vehicle) => (
               <VehicleCard
@@ -369,7 +352,7 @@ export default function RiderDashboard() {
         {mapsKey && (
           <Card className="p-4">
             <div className="flex items-center justify-between mb-4">
-              <h3 className="font-serif text-lg font-semibold">Nearby Eco Vehicles</h3>
+              <h3 className="font-serif text-lg font-semibold">Nearby Vehicles</h3>
               <Badge variant="secondary">
                 <Car className="h-3 w-3 mr-1" />
                 12 available

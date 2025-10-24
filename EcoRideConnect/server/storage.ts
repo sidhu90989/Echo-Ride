@@ -11,8 +11,6 @@ import {
   rides as ridesTable,
   payments as paymentsTable,
   ratings as ratingsTable,
-  ecoBadges as ecoBadgesTable,
-  userBadges as userBadgesTable,
   referrals as referralsTable,
   type User,
   type InsertUser,
@@ -24,10 +22,6 @@ import {
   type InsertPayment,
   type Rating,
   type InsertRating,
-  type EcoBadge,
-  type InsertEcoBadge,
-  type UserBadge,
-  type InsertUserBadge,
   type Referral,
   type InsertReferral,
 } from "@shared/schema";
@@ -91,11 +85,6 @@ export interface IStorage {
   // Rating operations
   createRating(rating: InsertRating): Promise<Rating>;
   getDriverRatings(driverId: string): Promise<Rating[]>;
-  
-  // Badge operations
-  getAllBadges(): Promise<EcoBadge[]>;
-  getUserBadges(userId: string): Promise<UserBadge[]>;
-  awardBadge(userBadge: InsertUserBadge): Promise<UserBadge>;
   
   // Referral operations
   createReferral(referral: InsertReferral): Promise<Referral>;
@@ -274,25 +263,7 @@ export class DatabaseStorage implements IStorage {
       .orderBy(desc(ratingsTable.createdAt));
   }
 
-  // Badge operations
-  async getAllBadges(): Promise<EcoBadge[]> {
-    const db = await getDb();
-    return await db.select().from(ecoBadgesTable);
-  }
-
-  async getUserBadges(userId: string): Promise<UserBadge[]> {
-    const db = await getDb();
-    return await db
-      .select()
-      .from(userBadgesTable)
-      .where(eq(userBadgesTable.userId, userId));
-  }
-
-  async awardBadge(userBadge: InsertUserBadge): Promise<UserBadge> {
-    const db = await getDb();
-    const [badge] = await db.insert(userBadgesTable).values(userBadge).returning();
-    return badge;
-  }
+  // Badge operations (removed - no longer tracking badges)
 
   // Referral operations
   async createReferral(referral: InsertReferral): Promise<Referral> {
@@ -322,16 +293,9 @@ export class DatabaseStorage implements IStorage {
         eq(ridesTable.status, 'completed')
       ));
     
-    const badgeCount = await db
-      .select({ count: sql<number>`count(*)` })
-      .from(userBadgesTable)
-      .where(eq(userBadgesTable.userId, userId));
-
     return {
       totalRides: userRides.length,
-      ecoPoints: user?.ecoPoints || 0,
-      totalCO2Saved: user?.totalCO2Saved || '0',
-      badgesEarned: badgeCount[0]?.count || 0,
+      badgesEarned: 0,
     };
   }
 
@@ -378,10 +342,6 @@ export class DatabaseStorage implements IStorage {
       return sum + Number(ride.actualFare || 0);
     }, 0);
 
-    const totalCO2 = completedRides.reduce((sum: number, ride: Ride) => {
-      return sum + Number(ride.co2Saved || 0);
-    }, 0);
-
     const todayRides = allRides.filter((r: Ride) => {
       return !!(r.requestedAt && new Date(r.requestedAt).toDateString() === new Date().toDateString());
     });
@@ -396,7 +356,6 @@ export class DatabaseStorage implements IStorage {
       totalUsers: userCount.count,
       activeDrivers: driverCount.count,
       totalRevenue: totalRevenue.toFixed(2),
-      totalCO2Saved: totalCO2.toFixed(2),
       totalRides: allRides.length,
       todayRides: todayRides.length,
       weekRides: allRides.length,
@@ -436,12 +395,6 @@ class MemoryStorage implements IStorage {
   private _rides: Ride[] = [];
   private _payments: Payment[] = [];
   private _ratings: Rating[] = [];
-  private _ecoBadges: EcoBadge[] = [
-    { id: this.id(), name: 'Green Beginner', description: 'Complete your first eco-friendly ride', iconName: 'leaf', requiredPoints: 10, createdAt: new Date() },
-    { id: this.id(), name: 'Eco Warrior', description: 'Save 10kg of CO₂', iconName: 'shield', requiredPoints: 100, createdAt: new Date() },
-    { id: this.id(), name: 'Planet Protector', description: 'Complete 25 eco-rides', iconName: 'globe', requiredPoints: 250, createdAt: new Date() },
-  ];
-  private _userBadges: UserBadge[] = [];
   private _referrals: Referral[] = [];
 
   async getUser(id: string) { return this._users.find(u => u.id === id); }
@@ -458,8 +411,6 @@ class MemoryStorage implements IStorage {
       gender: user.gender,
       role: (user as any).role || 'rider',
       profilePhoto: null as any,
-      ecoPoints: 0,
-      totalCO2Saved: '0',
       referralCode: (user as any).referralCode,
       referredBy: (user as any).referredBy,
       isActive: true,
@@ -545,14 +496,6 @@ class MemoryStorage implements IStorage {
   }
   async getDriverRatings(driverId: string) { return this._ratings.filter(r => (r as any).rateeId === driverId).sort((a, b) => +b.createdAt! - +a.createdAt!); }
 
-  async getAllBadges() { return this._ecoBadges; }
-  async getUserBadges(userId: string) { return this._userBadges.filter(ub => (ub as any).userId === userId); }
-  async awardBadge(userBadge: InsertUserBadge): Promise<UserBadge> {
-    const ub: UserBadge = { id: this.id(), ...userBadge as any, earnedAt: new Date() } as any;
-    this._userBadges.push(ub);
-    return ub;
-  }
-
   async createReferral(referral: InsertReferral): Promise<Referral> {
     const r: Referral = { id: this.id(), ...referral as any, createdAt: new Date() } as any;
     this._referrals.push(r);
@@ -563,12 +506,9 @@ class MemoryStorage implements IStorage {
   async getRiderStats(userId: string) {
     const user = await this.getUser(userId);
     const completed = this._rides.filter(r => r.riderId === userId && r.status === 'completed');
-    const badges = this._userBadges.filter(ub => (ub as any).userId === userId);
     return {
       totalRides: completed.length,
-      ecoPoints: user?.ecoPoints ?? 0,
-      totalCO2Saved: user?.totalCO2Saved ?? '0',
-      badgesEarned: badges.length,
+      badgesEarned: 0,
     };
   }
   async getDriverStats(userId: string) {
@@ -587,7 +527,6 @@ class MemoryStorage implements IStorage {
     const allRides = this._rides;
     const completed = allRides.filter(r => r.status === 'completed');
     const totalRevenue = completed.reduce((s, r) => s + Number(r.actualFare || 0), 0);
-    const totalCO2 = completed.reduce((s, r) => s + Number(r.co2Saved || 0), 0);
     const todayRides = allRides.filter(r => r.requestedAt && new Date(r.requestedAt).toDateString() === new Date().toDateString());
     const vehicleStats = {
       e_rickshaw: allRides.filter(r => r.vehicleType === 'e_rickshaw').length,
@@ -598,7 +537,6 @@ class MemoryStorage implements IStorage {
       totalUsers: this._users.length,
       activeDrivers: this._driverProfiles.filter(d => d.isAvailable).length,
       totalRevenue: totalRevenue.toFixed(2),
-      totalCO2Saved: totalCO2.toFixed(2),
       totalRides: allRides.length,
       todayRides: todayRides.length,
       weekRides: allRides.length,

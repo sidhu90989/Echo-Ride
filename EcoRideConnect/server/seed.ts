@@ -2,8 +2,6 @@ import { db as maybeDb } from "./db";
 import {
   users,
   driverProfiles,
-  ecoBadges,
-  type InsertEcoBadge,
   type InsertUser,
   type InsertDriverProfile,
 } from "@shared/schema";
@@ -13,43 +11,6 @@ export async function seed() {
     console.log("🌱 Seeding database...");
     const db = maybeDb!;
 
-    // Create eco badges
-    const badges: InsertEcoBadge[] = [
-      {
-        name: "Eco Starter",
-        description: "Complete your first eco-friendly ride",
-        iconName: "leaf",
-        requiredPoints: 10,
-      },
-      {
-        name: "Green Commuter",
-        description: "Save 5kg of CO₂ through eco rides",
-        iconName: "tree",
-        requiredPoints: 50,
-      },
-      {
-        name: "Climate Champion",
-        description: "Save 25kg of CO₂ through eco rides",
-        iconName: "award",
-        requiredPoints: 250,
-      },
-      {
-        name: "Eco Warrior",
-        description: "Save 100kg of CO₂ through eco rides",
-        iconName: "shield",
-        requiredPoints: 1000,
-      },
-      {
-        name: "Planet Protector",
-        description: "Complete 100 eco-friendly rides",
-        iconName: "globe",
-        requiredPoints: 500,
-      },
-    ];
-
-    console.log("📊 Creating eco badges...");
-  await db.insert(ecoBadges).values(badges);
-
     // Create sample users
     const sampleUsers: InsertUser[] = [
       {
@@ -58,8 +19,6 @@ export async function seed() {
         name: "Demo Rider",
         phone: "+91-9876543210",
         role: "rider",
-        ecoPoints: 120,
-        totalCO2Saved: "15.5",
         referralCode: "RIDER123",
       },
       {
@@ -68,8 +27,6 @@ export async function seed() {
         name: "Demo Driver",
         phone: "+91-9876543211",
         role: "driver",
-        ecoPoints: 350,
-        totalCO2Saved: "45.2",
         referralCode: "DRIVER456",
       },
       {
@@ -78,8 +35,6 @@ export async function seed() {
         name: "Demo Admin",
         phone: "+91-9876543212",
         role: "admin",
-        ecoPoints: 0,
-        totalCO2Saved: "0",
         referralCode: "ADMIN789",
       },
     ];
@@ -111,7 +66,6 @@ export async function seed() {
     console.log("✅ Database seeded successfully!");
     console.log(`
 📊 Created:
-  - ${badges.length} eco badges
   - ${sampleUsers.length} sample users (rider, driver, admin)
   - 1 driver profile
 

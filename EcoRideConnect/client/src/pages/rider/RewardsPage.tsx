@@ -53,7 +53,7 @@ export default function RewardsPage() {
               <h2 className="font-serif text-lg font-semibold">Invite & Earn</h2>
             </div>
             <p className="text-sm text-muted-foreground">
-              Invite friends to EcoRide and earn 100 eco-points for each successful referral!
+              Invite friends to RideConnect and earn 100 points for each successful referral!
             </p>
             <div className="flex gap-2">
               <div className="flex-1 p-3 bg-background rounded-md border">
@@ -73,22 +73,9 @@ export default function RewardsPage() {
           </div>
         </Card>
 
-        {/* Eco Points Summary */}
-        <Card className="p-6">
-          <div className="flex items-center justify-between mb-4">
-            <h2 className="font-serif text-lg font-semibold">Your Eco Points</h2>
-            <Badge className="text-lg px-4 py-2" data-testid="badge-eco-points">
-              {user?.ecoPoints || 0} Points
-            </Badge>
-          </div>
-          <p className="text-sm text-muted-foreground">
-            Earn points with every eco-friendly ride and unlock exclusive badges!
-          </p>
-        </Card>
-
         {/* Badges Section */}
         <div className="space-y-4">
-          <h2 className="font-serif text-xl font-semibold">Eco Badges</h2>
+          <h2 className="font-serif text-xl font-semibold">Achievement Badges</h2>
           
           {isLoading ? (
             <div className="py-12">

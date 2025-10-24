@@ -11,15 +11,15 @@ export default function HomePage() {
   const { user } = useAuth();
 
   return (
-    <div className="min-h-screen bg-gradient-to-b from-eco-mint/60 to-background">
+    <div className="min-h-screen bg-gradient-to-b from-primary/5 to-background">
       {/* Header */}
       <header className="sticky top-0 z-50 border-b bg-background/80 backdrop-blur supports-[backdrop-filter]:bg-background/60">
         <div className="mx-auto max-w-7xl px-4 py-3 flex items-center justify-between">
           <div className="flex items-center gap-2">
             <div className="h-9 w-9 rounded-full bg-primary/10 flex items-center justify-center">
-              <Leaf className="h-5 w-5 text-primary" />
+              <MapPin className="h-5 w-5 text-primary" />
             </div>
-            <span className="font-serif text-xl font-bold">EcoRide</span>
+            <span className="font-serif text-xl font-bold">RideConnect</span>
           </div>
           <div className="flex items-center gap-2">
             <ThemeToggle />
@@ -36,10 +36,10 @@ export default function HomePage() {
       <section className="mx-auto max-w-7xl px-4 pt-12 pb-8 grid gap-10 md:grid-cols-2 items-center">
         <div className="space-y-6">
           <h1 className="font-serif text-4xl md:text-5xl font-semibold leading-tight">
-            Ride clean. Ride smart. Earn rewards for every eco-friendly trip.
+            Ride smart. Ride safe. Earn rewards with every trip.
           </h1>
           <p className="text-muted-foreground text-base md:text-lg">
-            An Ola/Uber–style experience optimized for electric and CNG rides. Real-time tracking, safety-first design, and a rewards program that celebrates greener choices.
+            An Ola/Uber–style experience with electric and CNG rides. Real-time tracking, safety-first design, and a rewards program for every ride.
           </p>
           <div className="flex flex-wrap gap-3">
             <Button size="lg" onClick={() => setLocation(user ? `/${user.role}` : "/login")}>Book your first ride</Button>
@@ -55,8 +55,8 @@ export default function HomePage() {
           <HomeMapHero />
           <div className="absolute -bottom-4 -left-4 hidden md:block">
             <Card className="p-4 shadow-lg">
-              <div className="text-xs text-muted-foreground mb-1">Eco impact this month</div>
-              <div className="text-2xl font-bold">12.4 kg CO₂ saved</div>
+              <div className="text-xs text-muted-foreground mb-1">Rides this month</div>
+              <div className="text-2xl font-bold">1,247 trips</div>
             </Card>
           </div>
         </div>
@@ -83,8 +83,8 @@ export default function HomePage() {
             <div className="h-10 w-10 rounded-lg bg-primary/10 flex items-center justify-center mb-4">
               <Gift className="h-5 w-5 text-primary" />
             </div>
-            <h3 className="font-semibold text-lg mb-1">Rewards for green rides</h3>
-            <p className="text-sm text-muted-foreground">Earn eco points and unlock badges as you reduce your carbon footprint.</p>
+            <h3 className="font-semibold text-lg mb-1">Rewards for every ride</h3>
+            <p className="text-sm text-muted-foreground">Earn points and unlock badges with every completed trip.</p>
           </Card>
         </div>
       </section>
@@ -93,8 +93,8 @@ export default function HomePage() {
       <section className="mx-auto max-w-7xl px-4 pb-16">
         <div className="rounded-2xl border bg-card p-8 md:p-10 flex flex-col md:flex-row items-center justify-between gap-6">
           <div>
-            <h3 className="font-serif text-2xl font-semibold mb-2">Ready to ride greener?</h3>
-            <p className="text-sm text-muted-foreground">Join EcoRide today and start earning rewards for every eco-friendly trip.</p>
+            <h3 className="font-serif text-2xl font-semibold mb-2">Ready to ride smarter?</h3>
+            <p className="text-sm text-muted-foreground">Join RideConnect today and start earning rewards for every trip.</p>
           </div>
           {user ? (
             <Button size="lg" onClick={() => setLocation(`/${user.role}`)}>Open Dashboard</Button>
@@ -108,8 +108,8 @@ export default function HomePage() {
       <footer className="border-t py-8">
         <div className="mx-auto max-w-7xl px-4 text-sm text-muted-foreground flex items-center justify-between">
           <div className="flex items-center gap-2">
-            <Leaf className="h-4 w-4 text-primary" />
-            <span>EcoRide</span>
+            <MapPin className="h-4 w-4 text-primary" />
+            <span>RideConnect</span>
           </div>
           <div>
             <button className="underline-offset-4 hover:underline" onClick={() => setLocation("/charging-stations")}>Charging Stations</button>

@@ -32,8 +32,6 @@ export type DriverStats = {
 
 export type RiderStats = {
   totalRides: number;
-  ecoPoints: number;
-  totalCO2Saved: string | number;
   badgesEarned: number;
 };
 
