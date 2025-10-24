@@ -71,10 +71,10 @@ function Router() {
 
       {/* Rider Routes */}
       <Route path="/rider">
-        <ProtectedRoute component={RiderDashboardOLA} allowedRoles={["rider"]} />
-      </Route>
-      <Route path="/rider/dashboard-simple">
         <ProtectedRoute component={RiderDashboard} allowedRoles={["rider"]} />
+      </Route>
+      <Route path="/rider/dashboard-ola">
+        <ProtectedRoute component={RiderDashboardOLA} allowedRoles={["rider"]} />
       </Route>
       <Route path="/rider/history">
         <ProtectedRoute component={RideHistoryPage} allowedRoles={["rider"]} />
@@ -115,10 +115,10 @@ function Router() {
 
       {/* Driver Routes */}
       <Route path="/driver">
-        <ProtectedRoute component={DriverDashboardOLA} allowedRoles={["driver"]} />
-      </Route>
-      <Route path="/driver/dashboard-simple">
         <ProtectedRoute component={DriverDashboard} allowedRoles={["driver"]} />
+      </Route>
+      <Route path="/driver/dashboard-ola">
+        <ProtectedRoute component={DriverDashboardOLA} allowedRoles={["driver"]} />
       </Route>
       <Route path="/driver/ride-management">
         <ProtectedRoute component={RideManagementPage} allowedRoles={["driver"]} />
@@ -138,10 +138,10 @@ function Router() {
 
       {/* Admin Routes */}
       <Route path="/admin">
-        <ProtectedRoute component={AdminDashboardOLA} allowedRoles={["admin"]} />
-      </Route>
-      <Route path="/admin/dashboard-simple">
         <ProtectedRoute component={AdminDashboard} allowedRoles={["admin"]} />
+      </Route>
+      <Route path="/admin/dashboard-ola">
+        <ProtectedRoute component={AdminDashboardOLA} allowedRoles={["admin"]} />
       </Route>
       <Route path="/admin/users">
         <ProtectedRoute component={UsersDriversPage} allowedRoles={["admin"]} />
