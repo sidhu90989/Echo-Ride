@@ -243,7 +243,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
       const decoded = await admin.auth().verifyIdToken(idToken);
       const firebaseUid = decoded.uid;
       const email = decoded.email || undefined;
-      const name = (decoded.name as string | undefined) || (email ? email.split('@')[0] + ' User' : 'EcoRide User');
+      const name = (decoded.name as string | undefined) || (email ? email.split('@')[0] + ' User' : 'RideConnect User');
       const phoneNumber = (decoded.phone_number as string | undefined) || (typeof phone === 'string' ? phone : undefined);
       const selectedRole = role === 'driver' || role === 'admin' ? role : 'rider';
 

@@ -1,8 +1,8 @@
-# EcoRide Connect 🌱🚗
+# RideConnect 🚗
 
-Eco-friendly ride sharing with a clean TypeScript stack. This guide walks you step-by-step through setup for backend, frontend, database, and credentials (without exposing real secrets).
+Modern ride-hailing platform with a clean TypeScript stack. This guide walks you step-by-step through setup for backend, frontend, database, and credentials (without exposing real secrets).
 
-## 🚀 What’s inside
+## 🚀 What's inside
 - Backend: Express + TypeScript + Drizzle ORM on Neon PostgreSQL
 - Frontend: React 18 + Vite + Tailwind + Radix UI + React Query
 - Maps: Google Maps via @vis.gl/react-google-maps

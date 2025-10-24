@@ -112,14 +112,14 @@ export default function AnalyticsPage() {
 
   // Mock CO₂ leaderboard
   const co2Leaderboard: LeaderboardEntry[] = [
-    { rank: 1, name: "EcoWarrior92", type: "user", co2Saved: 2845, rides: 142, achievement: "Green Champion" },
-    { rank: 2, name: "Sarah Green", type: "user", co2Saved: 2654, rides: 128, achievement: "Carbon Crusher" },
-    { rank: 3, name: "Mike EcoDriver", type: "driver", co2Saved: 2489, rides: 234, achievement: "Electric Master" },
-    { rank: 4, name: "New York Hub", type: "city", co2Saved: 19964, rides: 58420, achievement: "Cleanest City" },
-    { rank: 5, name: "Emma Climate", type: "user", co2Saved: 2234, rides: 118, achievement: "Sustainability Star" },
-    { rank: 6, name: "Alex EcoRider", type: "user", co2Saved: 2156, rides: 104, achievement: "Green Guardian" },
-    { rank: 7, name: "David CleanDrive", type: "driver", co2Saved: 2089, rides: 195, achievement: "Eco Driver Pro" },
-    { rank: 8, name: "Lisa Planet", type: "user", co2Saved: 1987, rides: 98, achievement: "Earth Defender" }
+    { rank: 1, name: "TopRider92", type: "user", co2Saved: 2845, rides: 142, achievement: "Top Champion" },
+    { rank: 2, name: "Sarah Smith", type: "user", co2Saved: 2654, rides: 128, achievement: "Frequent Rider" },
+    { rank: 3, name: "Mike Driver", type: "driver", co2Saved: 2489, rides: 234, achievement: "Top Driver" },
+    { rank: 4, name: "New York Hub", type: "city", co2Saved: 19964, rides: 58420, achievement: "Busiest City" },
+    { rank: 5, name: "Emma Johnson", type: "user", co2Saved: 2234, rides: 118, achievement: "Regular Rider" },
+    { rank: 6, name: "Alex Williams", type: "user", co2Saved: 2156, rides: 104, achievement: "Active User" },
+    { rank: 7, name: "David Brown", type: "driver", co2Saved: 2089, rides: 195, achievement: "Pro Driver" },
+    { rank: 8, name: "Lisa Davis", type: "user", co2Saved: 1987, rides: 98, achievement: "Loyal Rider" }
   ];
 
   const getGrowthIcon = (rate: number) => {

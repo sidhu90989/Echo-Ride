@@ -3,7 +3,7 @@ import { useAuth } from "@/contexts/AuthContext";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
 import { useToast } from "@/hooks/use-toast";
-import { Leaf, Smartphone } from "lucide-react";
+import { Leaf, Smartphone, MapPin } from "lucide-react";
 import { useLocation } from "wouter";
 import { apiRequest } from "@/lib/queryClient";
 import { signInWithGoogle, ensureRecaptcha, signInWithPhoneNumber, confirmOTP, auth, googleProvider } from "@/lib/firebase";
@@ -42,7 +42,7 @@ export default function LoginPage() {
         (window as any)._pendingGoogle = {
           idToken,
           email: user.email || '',
-          displayName: user.displayName || 'EcoRide User',
+          displayName: user.displayName || 'RideConnect User',
         };
         setSelectedRole(role);
         setRoleModalOpen(true);
@@ -89,7 +89,7 @@ export default function LoginPage() {
         if (!resp.ok) throw new Error('Failed to establish session');
         const userData = await resp.json();
         setUser(userData);
-        toast({ title: "Welcome to EcoRide!", description: `Signed in as ${userData.email}` });
+        toast({ title: "Welcome to RideConnect!", description: `Signed in as ${userData.email}` });
         if (selectedRole === "admin") setLocation("/admin");
         else if (selectedRole === "driver") setLocation("/driver");
         else setLocation("/rider");
@@ -99,7 +99,7 @@ export default function LoginPage() {
         const res2 = await apiRequest("POST", "/api/auth/complete-profile", { name: displayName, phone: pendingPhone || "", role: selectedRole });
         const userData = await res2.json();
         setUser(userData);
-        toast({ title: "Welcome to EcoRide!", description: `Signed in as ${email}` });
+        toast({ title: "Welcome to RideConnect!", description: `Signed in as ${email}` });
         if (selectedRole === "admin") setLocation("/admin");
         else if (selectedRole === "driver") setLocation("/driver");
         else setLocation("/rider");
@@ -149,7 +149,7 @@ export default function LoginPage() {
       if (!resp.ok) throw new Error('Server failed to verify phone token');
       const userData = await resp.json();
       setUser(userData);
-      toast({ title: 'Welcome to EcoRide!', description: `Signed in as ${userData.phone || userData.email}` });
+      toast({ title: 'Welcome to RideConnect!', description: `Signed in as ${userData.phone || userData.email}` });
       if (userData.role === 'admin') setLocation('/admin');
       else if (userData.role === 'driver') setLocation('/driver');
       else setLocation('/rider');
@@ -166,12 +166,12 @@ export default function LoginPage() {
       <div className="w-full max-w-md space-y-8">
         <div className="text-center space-y-4">
           <div className="flex items-center justify-center gap-3">
-            <div className="p-3 bg-emerald-500 rounded-full">
-              <Leaf className="h-8 w-8 text-white" />
+            <div className="p-3 bg-primary rounded-full">
+              <MapPin className="h-8 w-8 text-white" />
             </div>
-            <h1 className="font-serif text-4xl font-bold">EcoRide</h1>
+            <h1 className="font-serif text-4xl font-bold">RideConnect</h1>
           </div>
-          <p className="text-white/70 text-lg">Eco-friendly ride sharing</p>
+          <p className="text-white/70 text-lg">Reliable rides, anytime</p>
         </div>
 
         <Card className="p-6 rounded-2xl bg-white text-black">
@@ -198,7 +198,7 @@ export default function LoginPage() {
         </Card>
 
         <p className="text-center text-xs text-white/60">
-          By continuing, you agree to EcoRide's Terms of Service and Privacy Policy
+          By continuing, you agree to RideConnect's Terms of Service and Privacy Policy
         </p>
       </div>
     </div>

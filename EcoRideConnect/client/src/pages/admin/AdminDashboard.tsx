@@ -13,7 +13,6 @@ import {
   Users,
   Car,
   DollarSign,
-  Leaf,
   TrendingUp,
   TrendingDown,
   MapPin,
@@ -52,7 +51,6 @@ interface ExtendedAdminStats extends AdminStats {
     city: string;
     totalRides: number;
     revenue: number;
-    co2Saved: number;
   }>;
   hourlyStats: Array<{
     hour: number;
@@ -88,18 +86,17 @@ export default function AdminDashboard() {
     totalUsers: 12845,
     activeDrivers: 3421,
     totalRevenue: 890543,
-    totalCO2Saved: 2340,
     totalRides: 15234,
     todayRides: 456,
     weekRides: 3456,
     monthRides: 12345,
     vehicleStats: { e_rickshaw: 145, e_scooter: 89, cng_car: 234 },
     cityWiseStats: [
-      { city: "Delhi", totalRides: 5432, revenue: 234567, co2Saved: 876 },
-      { city: "Mumbai", totalRides: 4321, revenue: 198765, co2Saved: 654 },
-      { city: "Bangalore", totalRides: 3210, revenue: 167543, co2Saved: 543 },
-      { city: "Chennai", totalRides: 2109, revenue: 145321, co2Saved: 432 },
-      { city: "Hyderabad", totalRides: 1876, revenue: 134567, co2Saved: 387 }
+      { city: "Delhi", totalRides: 5432, revenue: 234567 },
+      { city: "Mumbai", totalRides: 4321, revenue: 198765 },
+      { city: "Bangalore", totalRides: 3210, revenue: 167543 },
+      { city: "Chennai", totalRides: 2109, revenue: 145321 },
+      { city: "Hyderabad", totalRides: 1876, revenue: 134567 }
     ],
     hourlyStats: Array.from({ length: 24 }, (_, i) => ({
       hour: i,
@@ -177,7 +174,7 @@ export default function AdminDashboard() {
               <Menu className="h-5 w-5" />
             </Button>
             <div>
-              <h1 className="font-serif text-2xl font-bold">EcoRide Admin</h1>
+              <h1 className="font-serif text-2xl font-bold">RideConnect Admin</h1>
               <p className="text-sm text-muted-foreground">Comprehensive Dashboard</p>
             </div>
           </div>
@@ -320,29 +317,25 @@ export default function AdminDashboard() {
             </div>
           </Card>
 
-          {/* Environmental Impact */}
+          {/* Performance Insights */}
           <Card className="p-6">
             <div className="flex items-center gap-3 mb-4">
-              <Leaf className="h-6 w-6 text-green-600" />
-              <h3 className="font-serif text-lg font-semibold">Environmental Impact</h3>
+              <BarChart3 className="h-6 w-6 text-primary" />
+              <h3 className="font-serif text-lg font-semibold">Performance Insights</h3>
             </div>
             <div className="space-y-4">
-              <div className="text-center p-4 bg-green-50 dark:bg-green-950/20 rounded-lg">
-                <div className="text-3xl font-bold text-green-600">{adminStats.totalCO2Saved} kg</div>
-                <p className="text-sm text-green-700 dark:text-green-300">CO₂ Saved This Month</p>
-              </div>
               <div className="grid grid-cols-3 gap-4">
-                <div className="text-center">
-                  <div className="text-xl font-bold text-blue-600">1,234</div>
-                  <p className="text-xs text-muted-foreground">Trees Equivalent</p>
+                <div className="text-center p-4 bg-muted/50 rounded-lg">
+                  <div className="text-2xl font-bold text-primary">89%</div>
+                  <p className="text-xs text-muted-foreground">Driver Acceptance</p>
                 </div>
-                <div className="text-center">
-                  <div className="text-xl font-bold text-purple-600">89%</div>
-                  <p className="text-xs text-muted-foreground">Efficiency</p>
+                <div className="text-center p-4 bg-muted/50 rounded-lg">
+                  <div className="text-2xl font-bold text-green-600">95%</div>
+                  <p className="text-xs text-muted-foreground">Rider Satisfaction</p>
                 </div>
-                <div className="text-center">
-                  <div className="text-xl font-bold text-orange-600">567L</div>
-                  <p className="text-xs text-muted-foreground">Fuel Saved</p>
+                <div className="text-center p-4 bg-muted/50 rounded-lg">
+                  <div className="text-2xl font-bold text-blue-600">4.8</div>
+                  <p className="text-xs text-muted-foreground">Avg Rating</p>
                 </div>
               </div>
             </div>
@@ -370,7 +363,7 @@ export default function AdminDashboard() {
                 </div>
                 <div className="text-right">
                   <div className="font-semibold">₹{city.revenue.toLocaleString()}</div>
-                  <div className="text-sm text-green-600">{city.co2Saved}kg CO₂ saved</div>
+                  <div className="text-sm text-muted-foreground">Revenue</div>
                 </div>
               </div>
             ))}

@@ -140,7 +140,7 @@ export default function RiderDashboard() {
             </Button>
             <div>
               <h1 className="font-serif text-xl font-bold">RideConnect</h1>
-              <p className="text-xs text-muted-foreground">Smart transport</p>
+              <p className="text-xs text-muted-foreground">Reliable rides, anytime</p>
             </div>
           </div>
           <div className="flex items-center gap-2">

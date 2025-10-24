@@ -270,7 +270,7 @@ export class MatchingService {
   private async getHistoricalData(driverIds: string[]): Promise<any[]> {
     if (driverIds.length === 0) return [];
     
-    const datasetId = process.env.BIGQUERY_DATASET || 'ecoride_analytics';
+    const datasetId = process.env.BIGQUERY_DATASET || 'rideconnect_analytics';
     const tableId = 'ride_history';
     
     const query = `

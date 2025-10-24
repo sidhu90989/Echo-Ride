@@ -13,7 +13,7 @@ const vehicleConfig = {
   e_rickshaw: {
     name: "E-Rickshaw",
     icon: TramFront,
-    description: "Eco-friendly & affordable",
+    description: "Electric & affordable",
     capacity: "2-3 passengers",
   },
   e_scooter: {
@@ -25,7 +25,7 @@ const vehicleConfig = {
   cng_car: {
     name: "CNG Car",
     icon: Car,
-    description: "Comfortable & clean",
+    description: "Comfortable & spacious",
     capacity: "4 passengers",
   },
 };
@@ -37,7 +37,7 @@ export function VehicleCard({ type, selected, onSelect, estimatedFare, eta }: Ve
   return (
     <Card
       className={`cursor-pointer transition-all hover-elevate active-elevate-2 ${
-        selected ? "border-2 border-primary bg-eco-mint dark:bg-primary/10" : ""
+        selected ? "border-2 border-primary bg-primary/5 dark:bg-primary/10" : ""
       }`}
       onClick={onSelect}
       data-testid={`card-vehicle-${type}`}

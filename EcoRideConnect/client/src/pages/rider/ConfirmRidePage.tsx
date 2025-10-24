@@ -11,7 +11,7 @@ import {
   ArrowLeft, 
   MapPin, 
   Star, 
-  Leaf, 
+  ShieldCheck,
   CreditCard, 
   Smartphone,
   Wallet,
@@ -56,7 +56,7 @@ export default function ConfirmRidePage() {
     dropoff: "MG Road Metro Station",
     distance: "4.2 km",
     duration: "12 min",
-    co2Saved: "1.2 kg"
+    fare: 45
   };
 
   const pickup = { lat: 28.6139, lng: 77.2090 };
@@ -220,9 +220,9 @@ export default function ConfirmRidePage() {
                   <MapPin className="h-4 w-4 text-primary" />
                   <span>{rideData.distance} • {rideData.duration}</span>
                 </div>
-                <div className="flex items-center gap-2 text-green-600">
-                  <Leaf className="h-4 w-4" />
-                  <span>{rideData.co2Saved} CO₂ saved</span>
+                <div className="flex items-center gap-2 text-muted-foreground">
+                  <span className="font-semibold">₹{rideData.fare}</span>
+                  <span className="text-xs text-muted-foreground">Estimated fare</span>
                 </div>
               </div>
             </Card>
@@ -272,15 +272,14 @@ export default function ConfirmRidePage() {
             </div>
           </Card>
 
-          {/* Eco Tip */}
-          <Card className="p-4 bg-green-50 dark:bg-green-950/20 border-green-200 dark:border-green-800">
+          {/* Safety Tip */}
+          <Card className="p-4 bg-blue-50 dark:bg-blue-950/20 border-blue-200 dark:border-blue-800">
             <div className="flex items-start gap-3">
-              <Leaf className="h-5 w-5 text-green-600 mt-0.5" />
+              <ShieldCheck className="h-5 w-5 text-blue-600 mt-0.5" />
               <div>
-                <h4 className="font-semibold text-green-800 dark:text-green-200">EcoRide Impact</h4>
-                <p className="text-sm text-green-700 dark:text-green-300 mt-1">
-                  This ride will save {rideData.co2Saved} of CO₂ compared to a regular taxi! 
-                  You're helping make our city cleaner. 🌱
+                <h4 className="font-semibold text-blue-800 dark:text-blue-200">Safety First</h4>
+                <p className="text-sm text-blue-700 dark:text-blue-300 mt-1">
+                  Share your ride details with family and track your journey in real-time for added security.
                 </p>
               </div>
             </div>

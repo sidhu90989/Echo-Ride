@@ -26,7 +26,7 @@ export async function initCloudSQL(): Promise<Pool> {
     port: parseInt(process.env.CLOUD_SQL_PORT || '5432'),
     user: process.env.CLOUD_SQL_USER || 'postgres',
     password: process.env.CLOUD_SQL_PASSWORD || '',
-    database: process.env.CLOUD_SQL_DATABASE || 'ecoride',
+    database: process.env.CLOUD_SQL_DATABASE || 'rideconnect',
     max: 20, // Maximum connections in pool
     idleTimeoutMillis: 30000,
     connectionTimeoutMillis: 2000,

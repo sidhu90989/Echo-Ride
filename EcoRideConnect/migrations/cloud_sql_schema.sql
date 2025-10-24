@@ -1,4 +1,4 @@
--- Cloud SQL Schema for EcoRide (Google Cloud)
+-- Cloud SQL Schema for RideConnect (Google Cloud)
 -- PostgreSQL database schema for ride-hailing system
 
 -- Users table

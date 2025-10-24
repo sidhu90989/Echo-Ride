@@ -12,8 +12,6 @@ import {
   Frown, 
   Meh,
   ThumbsUp,
-  Award,
-  Leaf,
   DollarSign,
   CheckCircle
 } from "lucide-react";
@@ -49,8 +47,6 @@ export default function RatingPage() {
     vehicleNumber: "DL 8C 1234",
     vehicleType: "E-Rickshaw",
     fare: 45,
-    co2Saved: 1.2,
-    ecoPointsEarned: 25,
     distance: "4.2 km",
     duration: "12 mins"
   };
@@ -94,26 +90,24 @@ export default function RatingPage() {
             <div className="space-y-2">
               <h3 className="font-serif text-2xl font-semibold">Trip Complete!</h3>
               <p className="text-sm text-muted-foreground">
-                Thank you for choosing EcoRide. Your feedback helps us serve you better.
+                Thank you for choosing RideConnect. Your feedback helps us serve you better.
               </p>
             </div>
             
-            {/* Eco Impact Summary */}
-            <Card className="p-4 bg-green-50 dark:bg-green-950/20">
-              <div className="flex items-center justify-center gap-4">
+            {/* Trip Summary */}
+            <Card className="p-4 bg-muted/5">
+              <div className="flex items-center justify-center gap-6">
                 <div className="text-center">
-                  <div className="flex items-center justify-center gap-1 text-green-600">
-                    <Leaf className="w-4 h-4" />
-                    <span className="font-semibold">{rideData.co2Saved} kg</span>
-                  </div>
-                  <p className="text-xs text-muted-foreground">CO₂ Saved</p>
+                  <div className="font-semibold">{rideData.distance}</div>
+                  <p className="text-xs text-muted-foreground">Distance</p>
                 </div>
                 <div className="text-center">
-                  <div className="flex items-center justify-center gap-1 text-primary">
-                    <Award className="w-4 h-4" />
-                    <span className="font-semibold">{rideData.ecoPointsEarned}</span>
-                  </div>
-                  <p className="text-xs text-muted-foreground">Eco Points</p>
+                  <div className="font-semibold">{rideData.duration}</div>
+                  <p className="text-xs text-muted-foreground">Duration</p>
+                </div>
+                <div className="text-center">
+                  <div className="font-semibold">₹{rideData.fare}</div>
+                  <p className="text-xs text-muted-foreground">Fare</p>
                 </div>
               </div>
             </Card>
@@ -311,24 +305,27 @@ export default function RatingPage() {
           )}
         </Card>
 
-        {/* Eco Impact */}
-        <Card className="p-4 bg-green-50 dark:bg-green-950/20 border-green-200 dark:border-green-800">
+        {/* Trip Summary */}
+        <Card className="p-4 bg-muted/5">
           <div className="flex items-center gap-3 mb-3">
-            <Leaf className="w-5 h-5 text-green-600" />
-            <h3 className="font-semibold text-green-800 dark:text-green-200">Your Eco Impact</h3>
+            <h3 className="font-semibold">Trip Summary</h3>
           </div>
-          <div className="grid grid-cols-2 gap-4">
-            <div className="text-center">
-              <div className="text-2xl font-bold text-green-600">{rideData.co2Saved} kg</div>
-              <p className="text-sm text-green-700 dark:text-green-300">CO₂ Saved</p>
+          <div className="grid grid-cols-3 gap-4 text-center">
+            <div>
+              <div className="text-lg font-semibold">{rideData.distance}</div>
+              <p className="text-xs text-muted-foreground">Distance</p>
             </div>
-            <div className="text-center">
-              <div className="text-2xl font-bold text-primary">{rideData.ecoPointsEarned}</div>
-              <p className="text-sm text-green-700 dark:text-green-300">Eco Points Earned</p>
+            <div>
+              <div className="text-lg font-semibold">{rideData.duration}</div>
+              <p className="text-xs text-muted-foreground">Duration</p>
+            </div>
+            <div>
+              <div className="text-lg font-semibold">₹{rideData.fare}</div>
+              <p className="text-xs text-muted-foreground">Fare</p>
             </div>
           </div>
-          <p className="text-xs text-green-700 dark:text-green-300 mt-2 text-center">
-            🌱 Every eco-friendly ride helps build a cleaner future!
+          <p className="text-xs text-muted-foreground mt-2 text-center">
+            Thank you for riding with RideConnect. Your feedback helps us improve.
           </p>
         </Card>
 

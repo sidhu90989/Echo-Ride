@@ -2,7 +2,6 @@ export type AdminStats = {
   totalUsers: number;
   activeDrivers: number;
   totalRevenue: string | number;
-  totalCO2Saved: string | number;
   totalRides: number;
   todayRides: number;
   weekRides: number;

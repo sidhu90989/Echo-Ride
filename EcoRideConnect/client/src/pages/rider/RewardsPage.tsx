@@ -53,7 +53,7 @@ export default function RewardsPage() {
               <h2 className="font-serif text-lg font-semibold">Invite & Earn</h2>
             </div>
             <p className="text-sm text-muted-foreground">
-              Invite friends to RideConnect and earn 100 points for each successful referral!
+              Invite friends and earn bonus points with each successful referral. Share the convenience!
             </p>
             <div className="flex gap-2">
               <div className="flex-1 p-3 bg-background rounded-md border">

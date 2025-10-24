@@ -146,7 +146,7 @@ export default function WalletPage() {
             <div>
               <div className="flex items-center gap-2 mb-2">
                 <Wallet className="w-5 h-5" />
-                <span className="text-sm opacity-90">EcoRide Wallet</span>
+                <span className="text-sm opacity-90">RideConnect Wallet</span>
               </div>
               <div className="text-3xl font-bold">₹{walletBalance}</div>
               <div className="text-sm opacity-75">Available Balance</div>

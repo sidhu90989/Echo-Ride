@@ -18,7 +18,7 @@ export default function PWAInstallPrompt() {
   if (isIOS && !canInstall) {
     return (
       <div className="fixed bottom-4 left-1/2 -translate-x-1/2 z-50 bg-white/90 dark:bg-neutral-900/90 border rounded-full shadow-lg px-4 py-2 text-sm flex items-center gap-2">
-        <span>Install EcoRide: Share → Add to Home Screen</span>
+        <span>Install RideConnect: Share → Add to Home Screen</span>
         <Button size="sm" variant="ghost" onClick={() => setDismissed(true)}>
           Dismiss
         </Button>

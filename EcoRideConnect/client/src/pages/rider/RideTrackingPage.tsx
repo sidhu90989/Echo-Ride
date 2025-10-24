@@ -130,11 +130,11 @@ export default function RideTrackingPage() {
   };
 
   const handleShareLocation = () => {
-    const shareText = `🚗 I'm on a ride with EcoRide!\nRide ID: ${rideInfo.rideId}\nDriver: ${driverInfo.name}\nVehicle: ${driverInfo.vehicleNumber}\nTrack my ride: https://ecoride.app/track/${rideInfo.rideId}`;
+    const shareText = `🚗 I'm on a ride with RideConnect!\nRide ID: ${rideInfo.rideId}\nDriver: ${driverInfo.name}\nVehicle: ${driverInfo.vehicleNumber}\nTrack my ride: https://rideconnect.app/track/${rideInfo.rideId}`;
     
     if (navigator.share) {
       navigator.share({
-        title: 'EcoRide - Live Location',
+        title: 'RideConnect - Live Location',
         text: shareText
       });
     } else {

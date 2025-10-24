@@ -36,10 +36,10 @@ export default function HomePage() {
       <section className="mx-auto max-w-7xl px-4 pt-12 pb-8 grid gap-10 md:grid-cols-2 items-center">
         <div className="space-y-6">
           <h1 className="font-serif text-4xl md:text-5xl font-semibold leading-tight">
-            Ride smart. Ride safe. Earn rewards with every trip.
+            Your reliable ride, always on time.
           </h1>
           <p className="text-muted-foreground text-base md:text-lg">
-            An Ola/Uber–style experience with electric and CNG rides. Real-time tracking, safety-first design, and a rewards program for every ride.
+            Modern ride-hailing with electric and CNG vehicles. Real-time tracking, safety features, and rewards for every journey.
           </p>
           <div className="flex flex-wrap gap-3">
             <Button size="lg" onClick={() => setLocation(user ? `/${user.role}` : "/login")}>Book your first ride</Button>
@@ -69,15 +69,15 @@ export default function HomePage() {
             <div className="h-10 w-10 rounded-lg bg-primary/10 flex items-center justify-center mb-4">
               <Users className="h-5 w-5 text-primary" />
             </div>
-            <h3 className="font-semibold text-lg mb-1">Choose your ride type</h3>
-            <p className="text-sm text-muted-foreground">E‑Rickshaw, E‑Scooter, or CNG Car. Female driver preference for added comfort.</p>
+            <h3 className="font-semibold text-lg mb-1">Multiple vehicle options</h3>
+            <p className="text-sm text-muted-foreground">Choose from E-Rickshaw, E-Scooter, or CNG Car. Select female driver preference for added safety.</p>
           </Card>
           <Card className="p-6">
             <div className="h-10 w-10 rounded-lg bg-primary/10 flex items-center justify-center mb-4">
               <Route className="h-5 w-5 text-primary" />
             </div>
             <h3 className="font-semibold text-lg mb-1">Live tracking & safety</h3>
-            <p className="text-sm text-muted-foreground">Real-time location sharing, SOS prompt, and verified drivers for peace of mind.</p>
+            <p className="text-sm text-muted-foreground">Real-time location sharing, SOS button, and verified drivers for complete peace of mind.</p>
           </Card>
           <Card className="p-6">
             <div className="h-10 w-10 rounded-lg bg-primary/10 flex items-center justify-center mb-4">
@@ -93,8 +93,8 @@ export default function HomePage() {
       <section className="mx-auto max-w-7xl px-4 pb-16">
         <div className="rounded-2xl border bg-card p-8 md:p-10 flex flex-col md:flex-row items-center justify-between gap-6">
           <div>
-            <h3 className="font-serif text-2xl font-semibold mb-2">Ready to ride smarter?</h3>
-            <p className="text-sm text-muted-foreground">Join RideConnect today and start earning rewards for every trip.</p>
+            <h3 className="font-serif text-2xl font-semibold mb-2">Ready to get started?</h3>
+            <p className="text-sm text-muted-foreground">Join thousands of riders and start earning rewards today.</p>
           </div>
           {user ? (
             <Button size="lg" onClick={() => setLocation(`/${user.role}`)}>Open Dashboard</Button>
