@@ -13,16 +13,12 @@ var schema_exports = {};
 __export(schema_exports, {
   driverProfiles: () => driverProfiles,
   driverProfilesRelations: () => driverProfilesRelations,
-  ecoBadges: () => ecoBadges,
-  ecoBadgesRelations: () => ecoBadgesRelations,
   genderEnum: () => genderEnum,
   insertDriverProfileSchema: () => insertDriverProfileSchema,
-  insertEcoBadgeSchema: () => insertEcoBadgeSchema,
   insertPaymentSchema: () => insertPaymentSchema,
   insertRatingSchema: () => insertRatingSchema,
   insertReferralSchema: () => insertReferralSchema,
   insertRideSchema: () => insertRideSchema,
-  insertUserBadgeSchema: () => insertUserBadgeSchema,
   insertUserSchema: () => insertUserSchema,
   kycStatusEnum: () => kycStatusEnum,
   paymentMethodEnum: () => paymentMethodEnum,
@@ -36,8 +32,6 @@ __export(schema_exports, {
   rideStatusEnum: () => rideStatusEnum,
   rides: () => rides,
   ridesRelations: () => ridesRelations,
-  userBadges: () => userBadges,
-  userBadgesRelations: () => userBadgesRelations,
   userRoleEnum: () => userRoleEnum,
   users: () => users,
   usersRelations: () => usersRelations,
@@ -47,7 +41,7 @@ import { sql } from "drizzle-orm";
 import { pgTable, text, varchar, timestamp, integer, decimal, boolean, pgEnum } from "drizzle-orm/pg-core";
 import { relations } from "drizzle-orm";
 import { createInsertSchema } from "drizzle-zod";
-var userRoleEnum, genderEnum, vehicleTypeEnum, rideStatusEnum, paymentMethodEnum, paymentStatusEnum, kycStatusEnum, users, driverProfiles, rides, payments, ratings, ecoBadges, userBadges, referrals, usersRelations, driverProfilesRelations, ridesRelations, paymentsRelations, ratingsRelations, ecoBadgesRelations, userBadgesRelations, referralsRelations, insertUserSchema, insertDriverProfileSchema, insertRideSchema, insertPaymentSchema, insertRatingSchema, insertEcoBadgeSchema, insertUserBadgeSchema, insertReferralSchema;
+var userRoleEnum, genderEnum, vehicleTypeEnum, rideStatusEnum, paymentMethodEnum, paymentStatusEnum, kycStatusEnum, users, driverProfiles, rides, payments, ratings, referrals, usersRelations, driverProfilesRelations, ridesRelations, paymentsRelations, ratingsRelations, referralsRelations, insertUserSchema, insertDriverProfileSchema, insertRideSchema, insertPaymentSchema, insertRatingSchema, insertReferralSchema;
 var init_schema = __esm({
   "shared/schema.ts"() {
     "use strict";
@@ -67,8 +61,6 @@ var init_schema = __esm({
       gender: genderEnum("gender"),
       role: userRoleEnum("role").notNull().default("rider"),
       profilePhoto: text("profile_photo"),
-      ecoPoints: integer("eco_points").notNull().default(0),
-      totalCO2Saved: decimal("total_co2_saved", { precision: 10, scale: 2 }).notNull().default("0"),
       referralCode: text("referral_code").unique(),
       referredBy: varchar("referred_by"),
       isActive: boolean("is_active").notNull().default(true),
@@ -108,8 +100,6 @@ var init_schema = __esm({
       distance: decimal("distance", { precision: 10, scale: 2 }),
       estimatedFare: decimal("estimated_fare", { precision: 10, scale: 2 }),
       actualFare: decimal("actual_fare", { precision: 10, scale: 2 }),
-      co2Saved: decimal("co2_saved", { precision: 10, scale: 2 }),
-      ecoPointsEarned: integer("eco_points_earned").default(0),
       requestedAt: timestamp("requested_at").notNull().defaultNow(),
       acceptedAt: timestamp("accepted_at"),
       startedAt: timestamp("started_at"),
@@ -138,20 +128,6 @@ var init_schema = __esm({
       feedback: text("feedback"),
       createdAt: timestamp("created_at").notNull().defaultNow()
     });
-    ecoBadges = pgTable("eco_badges", {
-      id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
-      name: text("name").notNull(),
-      description: text("description"),
-      iconName: text("icon_name").notNull(),
-      requiredPoints: integer("required_points").notNull(),
-      createdAt: timestamp("created_at").notNull().defaultNow()
-    });
-    userBadges = pgTable("user_badges", {
-      id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
-      userId: varchar("user_id").notNull().references(() => users.id),
-      badgeId: varchar("badge_id").notNull().references(() => ecoBadges.id),
-      earnedAt: timestamp("earned_at").notNull().defaultNow()
-    });
     referrals = pgTable("referrals", {
       id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
       referrerId: varchar("referrer_id").notNull().references(() => users.id),
@@ -168,7 +144,6 @@ var init_schema = __esm({
       ridesAsDriver: many(rides, { relationName: "driverRides" }),
       ratingsGiven: many(ratings, { relationName: "raterRatings" }),
       ratingsReceived: many(ratings, { relationName: "rateeRatings" }),
-      badges: many(userBadges),
       referralsMade: many(referrals, { relationName: "referrerReferrals" }),
       referralsReceived: many(referrals, { relationName: "refereeReferrals" })
     }));
@@ -214,19 +189,6 @@ var init_schema = __esm({
         relationName: "rateeRatings"
       })
     }));
-    ecoBadgesRelations = relations(ecoBadges, ({ many }) => ({
-      userBadges: many(userBadges)
-    }));
-    userBadgesRelations = relations(userBadges, ({ one }) => ({
-      user: one(users, {
-        fields: [userBadges.userId],
-        references: [users.id]
-      }),
-      badge: one(ecoBadges, {
-        fields: [userBadges.badgeId],
-        references: [ecoBadges.id]
-      })
-    }));
     referralsRelations = relations(referrals, ({ one }) => ({
       referrer: one(users, {
         fields: [referrals.referrerId],
@@ -262,14 +224,6 @@ var init_schema = __esm({
     insertRatingSchema = createInsertSchema(ratings).omit({
       id: true,
       createdAt: true
-    });
-    insertEcoBadgeSchema = createInsertSchema(ecoBadges).omit({
-      id: true,
-      createdAt: true
-    });
-    insertUserBadgeSchema = createInsertSchema(userBadges).omit({
-      id: true,
-      earnedAt: true
     });
     insertReferralSchema = createInsertSchema(referrals).omit({
       id: true,
@@ -449,20 +403,7 @@ var DatabaseStorage = class {
     const db2 = await getDb();
     return await db2.select().from(ratings).where(eq(ratings.rateeId, driverId)).orderBy(desc(ratings.createdAt));
   }
-  // Badge operations
-  async getAllBadges() {
-    const db2 = await getDb();
-    return await db2.select().from(ecoBadges);
-  }
-  async getUserBadges(userId) {
-    const db2 = await getDb();
-    return await db2.select().from(userBadges).where(eq(userBadges.userId, userId));
-  }
-  async awardBadge(userBadge) {
-    const db2 = await getDb();
-    const [badge] = await db2.insert(userBadges).values(userBadge).returning();
-    return badge;
-  }
+  // Badge operations (removed - no longer tracking badges)
   // Referral operations
   async createReferral(referral) {
     const db2 = await getDb();
@@ -481,12 +422,9 @@ var DatabaseStorage = class {
       eq(rides.riderId, userId),
       eq(rides.status, "completed")
     ));
-    const badgeCount = await db2.select({ count: sql2`count(*)` }).from(userBadges).where(eq(userBadges.userId, userId));
     return {
       totalRides: userRides.length,
-      ecoPoints: user?.ecoPoints || 0,
-      totalCO2Saved: user?.totalCO2Saved || "0",
-      badgesEarned: badgeCount[0]?.count || 0
+      badgesEarned: 0
     };
   }
   async getDriverStats(userId) {
@@ -516,9 +454,6 @@ var DatabaseStorage = class {
     const totalRevenue = completedRides.reduce((sum, ride) => {
       return sum + Number(ride.actualFare || 0);
     }, 0);
-    const totalCO2 = completedRides.reduce((sum, ride) => {
-      return sum + Number(ride.co2Saved || 0);
-    }, 0);
     const todayRides = allRides.filter((r) => {
       return !!(r.requestedAt && new Date(r.requestedAt).toDateString() === (/* @__PURE__ */ new Date()).toDateString());
     });
@@ -531,7 +466,6 @@ var DatabaseStorage = class {
       totalUsers: userCount.count,
       activeDrivers: driverCount.count,
       totalRevenue: totalRevenue.toFixed(2),
-      totalCO2Saved: totalCO2.toFixed(2),
       totalRides: allRides.length,
       todayRides: todayRides.length,
       weekRides: allRides.length,
@@ -562,12 +496,6 @@ var MemoryStorage = class {
   _rides = [];
   _payments = [];
   _ratings = [];
-  _ecoBadges = [
-    { id: this.id(), name: "Green Beginner", description: "Complete your first eco-friendly ride", iconName: "leaf", requiredPoints: 10, createdAt: /* @__PURE__ */ new Date() },
-    { id: this.id(), name: "Eco Warrior", description: "Save 10kg of CO\u2082", iconName: "shield", requiredPoints: 100, createdAt: /* @__PURE__ */ new Date() },
-    { id: this.id(), name: "Planet Protector", description: "Complete 25 eco-rides", iconName: "globe", requiredPoints: 250, createdAt: /* @__PURE__ */ new Date() }
-  ];
-  _userBadges = [];
   _referrals = [];
   async getUser(id) {
     return this._users.find((u) => u.id === id);
@@ -589,8 +517,6 @@ var MemoryStorage = class {
       gender: user.gender,
       role: user.role || "rider",
       profilePhoto: null,
-      ecoPoints: 0,
-      totalCO2Saved: "0",
       referralCode: user.referralCode,
       referredBy: user.referredBy,
       isActive: true,
@@ -683,17 +609,6 @@ var MemoryStorage = class {
   async getDriverRatings(driverId) {
     return this._ratings.filter((r) => r.rateeId === driverId).sort((a, b) => +b.createdAt - +a.createdAt);
   }
-  async getAllBadges() {
-    return this._ecoBadges;
-  }
-  async getUserBadges(userId) {
-    return this._userBadges.filter((ub) => ub.userId === userId);
-  }
-  async awardBadge(userBadge) {
-    const ub = { id: this.id(), ...userBadge, earnedAt: /* @__PURE__ */ new Date() };
-    this._userBadges.push(ub);
-    return ub;
-  }
   async createReferral(referral) {
     const r = { id: this.id(), ...referral, createdAt: /* @__PURE__ */ new Date() };
     this._referrals.push(r);
@@ -705,12 +620,9 @@ var MemoryStorage = class {
   async getRiderStats(userId) {
     const user = await this.getUser(userId);
     const completed = this._rides.filter((r) => r.riderId === userId && r.status === "completed");
-    const badges = this._userBadges.filter((ub) => ub.userId === userId);
     return {
       totalRides: completed.length,
-      ecoPoints: user?.ecoPoints ?? 0,
-      totalCO2Saved: user?.totalCO2Saved ?? "0",
-      badgesEarned: badges.length
+      badgesEarned: 0
     };
   }
   async getDriverStats(userId) {
@@ -729,7 +641,6 @@ var MemoryStorage = class {
     const allRides = this._rides;
     const completed = allRides.filter((r) => r.status === "completed");
     const totalRevenue = completed.reduce((s, r) => s + Number(r.actualFare || 0), 0);
-    const totalCO2 = completed.reduce((s, r) => s + Number(r.co2Saved || 0), 0);
     const todayRides = allRides.filter((r) => r.requestedAt && new Date(r.requestedAt).toDateString() === (/* @__PURE__ */ new Date()).toDateString());
     const vehicleStats = {
       e_rickshaw: allRides.filter((r) => r.vehicleType === "e_rickshaw").length,
@@ -740,7 +651,6 @@ var MemoryStorage = class {
       totalUsers: this._users.length,
       activeDrivers: this._driverProfiles.filter((d) => d.isAvailable).length,
       totalRevenue: totalRevenue.toFixed(2),
-      totalCO2Saved: totalCO2.toFixed(2),
       totalRides: allRides.length,
       todayRides: todayRides.length,
       weekRides: allRides.length,
@@ -1004,6 +914,479 @@ function verifyEmailOtp(emailRaw, code) {
   return true;
 }
 
+// server/socketService.ts
+init_db();
+init_schema();
+import { Server as SocketIOServer } from "socket.io";
+import { eq as eq2, sql as sql3 } from "drizzle-orm";
+function getDb2() {
+  if (!db) {
+    throw new Error("Database connection not initialized");
+  }
+  return db;
+}
+var onlineDrivers = /* @__PURE__ */ new Map();
+var activeRides = /* @__PURE__ */ new Map();
+var pendingRideRequests = /* @__PURE__ */ new Map();
+var platformMetrics = {
+  totalDrivers: 0,
+  activeDrivers: 0,
+  activeRides: 0,
+  todayRevenue: 0,
+  todayRides: 0,
+  avgResponseTime: 0
+};
+function initializeSocketIO(httpServer) {
+  const io = new SocketIOServer(httpServer, {
+    cors: {
+      origin: process.env.FRONTEND_ORIGIN?.split(",").map((s) => s.trim()) || "*",
+      credentials: true
+    },
+    transports: ["websocket", "polling"]
+  });
+  console.log("\u{1F50C} Socket.IO server initialized");
+  io.use((socket, next) => {
+    const userId = socket.handshake.auth.userId;
+    const userType = socket.handshake.auth.userType;
+    if (!userId || !userType) {
+      return next(new Error("Authentication required"));
+    }
+    socket.data.userId = userId;
+    socket.data.userType = userType;
+    next();
+  });
+  io.on("connection", (socket) => {
+    const userId = socket.data.userId;
+    const userType = socket.data.userType;
+    console.log(`\u2705 ${userType} connected: ${userId}`);
+    if (userType === "driver") {
+      socket.on("driver:online", async (data) => {
+        onlineDrivers.set(userId, {
+          socketId: socket.id,
+          userId,
+          location: data.location,
+          status: "online",
+          lastUpdate: Date.now()
+        });
+        try {
+          await getDb2().update(driverProfiles).set({ isAvailable: true, updatedAt: /* @__PURE__ */ new Date() }).where(eq2(driverProfiles.userId, userId));
+        } catch (error) {
+          console.error("Error updating driver status:", error);
+        }
+        platformMetrics.activeDrivers = onlineDrivers.size;
+        io.to("admin-room").emit("driver:status_changed", {
+          driverId: userId,
+          status: "online",
+          location: data.location
+        });
+        console.log(`\u{1F7E2} Driver ${userId} is now online`);
+      });
+      socket.on("driver:offline", async () => {
+        onlineDrivers.delete(userId);
+        try {
+          await getDb2().update(driverProfiles).set({ isAvailable: false, updatedAt: /* @__PURE__ */ new Date() }).where(eq2(driverProfiles.userId, userId));
+        } catch (error) {
+          console.error("Error updating driver status:", error);
+        }
+        platformMetrics.activeDrivers = onlineDrivers.size;
+        io.to("admin-room").emit("driver:status_changed", {
+          driverId: userId,
+          status: "offline"
+        });
+        console.log(`\u26AA Driver ${userId} is now offline`);
+      });
+      socket.on("driver:location_update", (data) => {
+        const driver = onlineDrivers.get(userId);
+        if (driver) {
+          driver.location = data.location;
+          driver.lastUpdate = Date.now();
+          activeRides.forEach((ride, rideId) => {
+            if (ride.driverId === userId && ride.riderSocketId) {
+              io.to(ride.riderSocketId).emit("ride:driver_location", {
+                location: data.location
+              });
+            }
+          });
+          io.to("admin-room").emit("driver:location_update", {
+            driverId: userId,
+            location: data.location
+          });
+        }
+      });
+      socket.on("ride:accept", async (data) => {
+        const { rideId } = data;
+        if (!db) {
+          socket.emit("error", { message: "Database not available" });
+          return;
+        }
+        try {
+          await getDb2().update(rides).set({
+            driverId: userId,
+            status: "accepted",
+            acceptedAt: /* @__PURE__ */ new Date(),
+            updatedAt: /* @__PURE__ */ new Date()
+          }).where(eq2(rides.id, rideId));
+          const [driverInfo] = await db.select({
+            name: users.name,
+            phone: users.phone,
+            vehicleType: driverProfiles.vehicleType,
+            vehicleNumber: driverProfiles.vehicleNumber,
+            rating: driverProfiles.rating
+          }).from(users).innerJoin(driverProfiles, eq2(driverProfiles.userId, users.id)).where(eq2(users.id, userId));
+          const [ride] = await db.select().from(rides).where(eq2(rides.id, rideId));
+          if (!ride) {
+            socket.emit("error", { message: "Ride not found" });
+            return;
+          }
+          let rideData = activeRides.get(rideId);
+          if (!rideData) {
+            rideData = {
+              rideId,
+              riderId: ride.riderId,
+              driverId: userId,
+              status: "accepted"
+            };
+            activeRides.set(rideId, rideData);
+          }
+          rideData.driverId = userId;
+          rideData.driverSocketId = socket.id;
+          rideData.status = "accepted";
+          const driver = onlineDrivers.get(userId);
+          if (driver) {
+            driver.status = "on_ride";
+          }
+          platformMetrics.activeRides = activeRides.size;
+          if (rideData.riderSocketId) {
+            const driverLocation = driver?.location;
+            io.to(rideData.riderSocketId).emit("ride:driver_assigned", {
+              driver: {
+                id: userId,
+                ...driverInfo,
+                location: driverLocation
+              },
+              rideId
+            });
+          }
+          const pendingRequest = pendingRideRequests.get(rideId);
+          if (pendingRequest) {
+            clearTimeout(pendingRequest.timeout);
+            pendingRideRequests.delete(rideId);
+          }
+          io.to("admin-room").emit("ride:accepted", {
+            rideId,
+            driverId: userId,
+            riderId: ride.riderId
+          });
+          console.log(`\u2705 Driver ${userId} accepted ride ${rideId}`);
+        } catch (error) {
+          console.error("Error accepting ride:", error);
+          socket.emit("error", { message: "Failed to accept ride" });
+        }
+      });
+      socket.on("ride:reject", async (data) => {
+        const { rideId } = data;
+        console.log(`\u274C Driver ${userId} rejected ride ${rideId}`);
+        await findNextAvailableDriver(rideId, userId);
+      });
+      socket.on("ride:start", async (data) => {
+        const { rideId } = data;
+        if (!db) return;
+        try {
+          await getDb2().update(rides).set({
+            status: "in_progress",
+            startedAt: /* @__PURE__ */ new Date(),
+            updatedAt: /* @__PURE__ */ new Date()
+          }).where(eq2(rides.id, rideId));
+          const rideData = activeRides.get(rideId);
+          if (rideData) {
+            rideData.status = "in_progress";
+            if (rideData.riderSocketId) {
+              io.to(rideData.riderSocketId).emit("ride:started", { rideId });
+            }
+          }
+          io.to("admin-room").emit("ride:started", { rideId });
+          console.log(`\u{1F697} Ride ${rideId} started`);
+        } catch (error) {
+          console.error("Error starting ride:", error);
+        }
+      });
+      socket.on("ride:complete", async (data) => {
+        const { rideId } = data;
+        if (!db) return;
+        try {
+          const [ride] = await db.select().from(rides).where(eq2(rides.id, rideId));
+          if (!ride) return;
+          await getDb2().update(rides).set({
+            status: "completed",
+            completedAt: /* @__PURE__ */ new Date(),
+            updatedAt: /* @__PURE__ */ new Date()
+          }).where(eq2(rides.id, rideId));
+          await getDb2().update(driverProfiles).set({
+            totalRides: sql3`${driverProfiles.totalRides} + 1`,
+            totalEarnings: sql3`${driverProfiles.totalEarnings} + ${ride.actualFare || ride.estimatedFare}`,
+            updatedAt: /* @__PURE__ */ new Date()
+          }).where(eq2(driverProfiles.userId, userId));
+          const rideData = activeRides.get(rideId);
+          if (rideData) {
+            if (rideData.riderSocketId) {
+              io.to(rideData.riderSocketId).emit("ride:completed", { rideId });
+            }
+            activeRides.delete(rideId);
+          }
+          const driver = onlineDrivers.get(userId);
+          if (driver) {
+            driver.status = "online";
+          }
+          platformMetrics.activeRides = activeRides.size;
+          platformMetrics.todayRides += 1;
+          platformMetrics.todayRevenue += Number(ride.actualFare || ride.estimatedFare || 0);
+          io.to("admin-room").emit("ride:completed", { rideId });
+          io.to("admin-room").emit("platform:metrics", platformMetrics);
+          console.log(`\u2705 Ride ${rideId} completed`);
+        } catch (error) {
+          console.error("Error completing ride:", error);
+        }
+      });
+    }
+    if (userType === "rider") {
+      socket.on("ride:request", async (rideRequest) => {
+        try {
+          console.log(`\u{1F695} Ride request from rider ${userId}:`, rideRequest);
+          const [newRide] = await getDb2().insert(rides).values({
+            riderId: userId,
+            pickupLocation: rideRequest.pickup.address,
+            pickupLat: rideRequest.pickup.lat.toString(),
+            pickupLng: rideRequest.pickup.lng.toString(),
+            dropoffLocation: rideRequest.drop.address,
+            dropoffLat: rideRequest.drop.lat.toString(),
+            dropoffLng: rideRequest.drop.lng.toString(),
+            vehicleType: rideRequest.vehicleType,
+            distance: rideRequest.distance.toString(),
+            estimatedFare: rideRequest.fare.toString(),
+            status: "pending"
+          }).returning();
+          if (!newRide) {
+            socket.emit("error", { message: "Failed to create ride" });
+            return;
+          }
+          activeRides.set(newRide.id, {
+            rideId: newRide.id,
+            riderId: userId,
+            driverId: "",
+            riderSocketId: socket.id,
+            status: "pending"
+          });
+          const nearbyDrivers = await findNearbyDrivers(
+            rideRequest.pickup.lat,
+            rideRequest.pickup.lng,
+            rideRequest.vehicleType,
+            5e3
+            // 5km radius
+          );
+          if (nearbyDrivers.length === 0) {
+            socket.emit("ride:no_drivers", { message: "No drivers available nearby" });
+            await getDb2().update(rides).set({ status: "cancelled", cancelledAt: /* @__PURE__ */ new Date() }).where(eq2(rides.id, newRide.id));
+            activeRides.delete(newRide.id);
+            return;
+          }
+          const rideDetails = {
+            id: newRide.id,
+            riderId: userId,
+            pickup: rideRequest.pickup,
+            drop: rideRequest.drop,
+            vehicleType: rideRequest.vehicleType,
+            fare: rideRequest.fare,
+            distance: rideRequest.distance,
+            status: "pending"
+          };
+          const timeout = setTimeout(() => {
+            findNextAvailableDriver(newRide.id);
+          }, 3e4);
+          pendingRideRequests.set(newRide.id, {
+            rideRequest,
+            requestedDrivers: /* @__PURE__ */ new Set([nearbyDrivers[0].userId]),
+            timeout
+          });
+          const firstDriver = onlineDrivers.get(nearbyDrivers[0].userId);
+          if (firstDriver) {
+            io.to(firstDriver.socketId).emit("ride:request", rideDetails);
+          }
+          console.log(`\u{1F4E4} Ride request sent to driver ${nearbyDrivers[0].userId}`);
+        } catch (error) {
+          console.error("Error creating ride:", error);
+          socket.emit("error", { message: "Failed to create ride" });
+        }
+      });
+      socket.on("ride:cancel", async (data) => {
+        const { rideId } = data;
+        try {
+          await getDb2().update(rides).set({
+            status: "cancelled",
+            cancelledAt: /* @__PURE__ */ new Date(),
+            updatedAt: /* @__PURE__ */ new Date()
+          }).where(eq2(rides.id, rideId));
+          const rideData = activeRides.get(rideId);
+          if (rideData) {
+            if (rideData.driverSocketId) {
+              io.to(rideData.driverSocketId).emit("ride:cancelled", { rideId });
+            }
+            activeRides.delete(rideId);
+          }
+          const pendingRequest = pendingRideRequests.get(rideId);
+          if (pendingRequest) {
+            clearTimeout(pendingRequest.timeout);
+            pendingRideRequests.delete(rideId);
+          }
+          platformMetrics.activeRides = activeRides.size;
+          io.to("admin-room").emit("ride:cancelled", { rideId });
+          console.log(`\u274C Ride ${rideId} cancelled by rider`);
+        } catch (error) {
+          console.error("Error cancelling ride:", error);
+        }
+      });
+    }
+    if (userType === "admin") {
+      socket.join("admin-room");
+      socket.on("admin:get_all_drivers", async () => {
+        const driversData = [];
+        const driversList = Array.from(onlineDrivers.entries());
+        for (const [userId2, driver] of driversList) {
+          try {
+            const [userInfo] = await db.select({
+              name: users.name,
+              phone: users.phone
+            }).from(users).where(eq2(users.id, userId2));
+            driversData.push({
+              id: userId2,
+              name: userInfo?.name || "Unknown",
+              location: driver.location,
+              status: driver.status,
+              lastUpdate: driver.lastUpdate
+            });
+          } catch (error) {
+            console.error("Error fetching driver info:", error);
+          }
+        }
+        socket.emit("admin:all_drivers", { drivers: driversData });
+      });
+      socket.on("admin:get_active_rides", async () => {
+        const ridesData = [];
+        const ridesList = Array.from(activeRides.entries());
+        for (const [rideId, ride] of ridesList) {
+          try {
+            const [rideInfo] = await getDb2().select().from(rides).where(eq2(rides.id, rideId));
+            if (rideInfo) {
+              ridesData.push({
+                ...rideInfo,
+                ...ride
+                // Spread ride to get in-memory status updates
+              });
+            }
+          } catch (error) {
+            console.error("Error fetching ride info:", error);
+          }
+        }
+        socket.emit("admin:active_rides", { rides: ridesData });
+      });
+      socket.emit("platform:metrics", platformMetrics);
+    }
+    socket.on("disconnect", () => {
+      console.log(`\u274C ${userType} disconnected: ${userId}`);
+      if (userType === "driver") {
+        onlineDrivers.delete(userId);
+        platformMetrics.activeDrivers = onlineDrivers.size;
+        io.to("admin-room").emit("driver:status_changed", {
+          driverId: userId,
+          status: "offline"
+        });
+      }
+      activeRides.forEach((ride, rideId) => {
+        if (ride.riderSocketId === socket.id) {
+          ride.riderSocketId = void 0;
+        }
+        if (ride.driverSocketId === socket.id) {
+          ride.driverSocketId = void 0;
+        }
+      });
+    });
+  });
+  setInterval(() => {
+    const now = Date.now();
+    const driversList = Array.from(onlineDrivers.entries());
+    for (const [userId, driver] of driversList) {
+      if (now - driver.lastUpdate > 6e4) {
+        onlineDrivers.delete(userId);
+        console.log(`\u{1F9F9} Cleaned up stale driver: ${userId}`);
+      }
+    }
+    platformMetrics.activeDrivers = onlineDrivers.size;
+  }, 3e4);
+  return io;
+}
+async function findNearbyDrivers(lat, lng, vehicleType, radiusMeters = 5e3) {
+  const nearbyDrivers = [];
+  const driversList = Array.from(onlineDrivers.entries());
+  for (const [userId, driver] of driversList) {
+    if (driver.status !== "online") continue;
+    const distance = calculateDistance(
+      lat,
+      lng,
+      driver.location.lat,
+      driver.location.lng
+    );
+    if (distance <= radiusMeters) {
+      nearbyDrivers.push({ userId, distance });
+    }
+  }
+  nearbyDrivers.sort((a, b) => a.distance - b.distance);
+  return nearbyDrivers;
+}
+async function findNextAvailableDriver(rideId, rejectedDriverId) {
+  const pendingRequest = pendingRideRequests.get(rideId);
+  if (!pendingRequest) return;
+  const { rideRequest, requestedDrivers } = pendingRequest;
+  if (rejectedDriverId) {
+    requestedDrivers.add(rejectedDriverId);
+  }
+  const nearbyDrivers = await findNearbyDrivers(
+    rideRequest.pickup.lat,
+    rideRequest.pickup.lng,
+    rideRequest.vehicleType,
+    5e3
+  );
+  const nextDriver = nearbyDrivers.find((d) => !requestedDrivers.has(d.userId));
+  if (!nextDriver) {
+    const rideData = activeRides.get(rideId);
+    if (rideData?.riderSocketId) {
+      console.log(`\u274C No more drivers available for ride ${rideId}`);
+    }
+    try {
+      await getDb2().update(rides).set({ status: "cancelled", cancelledAt: /* @__PURE__ */ new Date() }).where(eq2(rides.id, rideId));
+    } catch (error) {
+      console.error("Error cancelling ride:", error);
+    }
+    clearTimeout(pendingRequest.timeout);
+    pendingRideRequests.delete(rideId);
+    activeRides.delete(rideId);
+    return;
+  }
+  requestedDrivers.add(nextDriver.userId);
+  const driver = onlineDrivers.get(nextDriver.userId);
+  if (driver) {
+    console.log(`\u{1F4E4} Sending ride request to next driver: ${nextDriver.userId}`);
+  }
+}
+function calculateDistance(lat1, lng1, lat2, lng2) {
+  const R = 6371e3;
+  const \u03C61 = lat1 * Math.PI / 180;
+  const \u03C62 = lat2 * Math.PI / 180;
+  const \u0394\u03C6 = (lat2 - lat1) * Math.PI / 180;
+  const \u0394\u03BB = (lng2 - lng1) * Math.PI / 180;
+  const a = Math.sin(\u0394\u03C6 / 2) * Math.sin(\u0394\u03C6 / 2) + Math.cos(\u03C61) * Math.cos(\u03C62) * Math.sin(\u0394\u03BB / 2) * Math.sin(\u0394\u03BB / 2);
+  const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
+  return R * c;
+}
+
 // server/routes.ts
 if (process.env.NODE_ENV !== "production") {
   config3();
@@ -1145,8 +1528,6 @@ async function registerRoutes(app2) {
         phone,
         role,
         referralCode,
-        ecoPoints: 0,
-        totalCO2Saved: "0",
         isActive: true
       });
       if (role === "driver") {
@@ -1189,7 +1570,7 @@ async function registerRoutes(app2) {
       const decoded = await admin.auth().verifyIdToken(idToken);
       const firebaseUid = decoded.uid;
       const email = decoded.email || void 0;
-      const name = decoded.name || (email ? email.split("@")[0] + " User" : "EcoRide User");
+      const name = decoded.name || (email ? email.split("@")[0] + " User" : "RideConnect User");
       const phoneNumber = decoded.phone_number || (typeof phone === "string" ? phone : void 0);
       const selectedRole = role === "driver" || role === "admin" ? role : "rider";
       let user = await storage.getUserByFirebaseUid(firebaseUid);
@@ -1208,8 +1589,6 @@ async function registerRoutes(app2) {
           phone: phoneNumber,
           role: selectedRole,
           referralCode,
-          ecoPoints: 0,
-          totalCO2Saved: "0",
           isActive: true
         });
         if (selectedRole === "driver") {
@@ -1261,8 +1640,6 @@ async function registerRoutes(app2) {
           phone,
           role: role === "driver" || role === "admin" ? role : "rider",
           referralCode,
-          ecoPoints: 0,
-          totalCO2Saved: "0",
           isActive: true
         });
         if (user && user.role === "driver") {
@@ -1349,24 +1726,6 @@ async function registerRoutes(app2) {
       res.status(500).json({ error: error.message });
     }
   });
-  app2.get("/api/rider/badges", verifyFirebaseToken, async (req, res) => {
-    try {
-      const user = await storage.getUserByFirebaseUid(req.firebaseUid);
-      if (!user) {
-        return res.status(404).json({ error: "User not found" });
-      }
-      const allBadges = await storage.getAllBadges();
-      const userBadges2 = await storage.getUserBadges(user.id);
-      const earnedBadgeIds = new Set(userBadges2.map((ub) => ub.badgeId));
-      const badgesWithStatus = allBadges.map((badge) => ({
-        ...badge,
-        earned: earnedBadgeIds.has(badge.id)
-      }));
-      res.json(badgesWithStatus);
-    } catch (error) {
-      res.status(500).json({ error: error.message });
-    }
-  });
   app2.post("/api/rides", verifyFirebaseToken, async (req, res) => {
     try {
       const user = await storage.getUserByFirebaseUid(req.firebaseUid);
@@ -1390,8 +1749,6 @@ async function registerRoutes(app2) {
       const dropLabel = dropoffLocation || `Drop (${Number(dropoffLat).toFixed(5)}, ${Number(dropoffLng).toFixed(5)})`;
       const distance = 5.5;
       const estimatedFare = vehicleType === "e_scooter" ? 30 : vehicleType === "e_rickshaw" ? 45 : 80;
-      const co2Saved = distance * 0.12;
-      const ecoPoints = Math.floor(distance * 10);
       const ride = await storage.createRide({
         riderId: user.id,
         pickupLocation: pickLabel,
@@ -1404,9 +1761,7 @@ async function registerRoutes(app2) {
         femalePrefRequested,
         status: "pending",
         distance: distance.toString(),
-        estimatedFare: estimatedFare.toString(),
-        co2Saved: co2Saved.toString(),
-        ecoPointsEarned: ecoPoints
+        estimatedFare: estimatedFare.toString()
       });
       initiateRideMatching(req.app, ride.id, Number(pickupLat), Number(pickupLng), Number(dropoffLat), Number(dropoffLng), vehicleType, estimatedFare);
       res.status(201).json({ id: ride.id, status: "searching" });
@@ -1483,13 +1838,6 @@ async function registerRoutes(app2) {
         actualFare: actualFare || ride.estimatedFare,
         completedAt: /* @__PURE__ */ new Date()
       });
-      const rider = await storage.getUser(ride.riderId);
-      if (rider) {
-        await storage.updateUser(ride.riderId, {
-          ecoPoints: rider.ecoPoints + (ride.ecoPointsEarned || 0),
-          totalCO2Saved: (Number(rider.totalCO2Saved) + Number(ride.co2Saved || 0)).toString()
-        });
-      }
       if (ride.driverId) {
         const driverProfile = await storage.getDriverProfile(ride.driverId);
         if (driverProfile) {
@@ -1648,8 +1996,11 @@ async function registerRoutes(app2) {
     }
   });
   const httpServer = createServer(app2);
+  const io = initializeSocketIO(httpServer);
+  console.log("\u{1F680} Socket.IO initialized for real-time ride management");
   const wss = new WebSocketServer({ server: httpServer, path: "/ws" });
   app2.locals.wss = wss;
+  app2.locals.io = io;
   wss.on("connection", (ws2) => {
     console.log("Client connected to WebSocket");
     ws2.on("message", (message) => {

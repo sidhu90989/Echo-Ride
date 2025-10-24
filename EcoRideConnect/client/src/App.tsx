@@ -32,10 +32,7 @@ import ProfileVerificationPage from "@/pages/driver/ProfileVerificationPage";
 import AdminDashboard from "@/pages/admin/ComboDashboard";
 import NotFoundPage from "@/pages/NotFoundPage";
 
-// OLA-Style Dashboards (deprecated: routed to Combo as well for backward links)
-import RiderDashboardOLA from "@/pages/rider/ComboDashboard";
-import DriverDashboardOLA from "@/pages/driver/ComboDashboard";
-import AdminDashboardOLA from "@/pages/admin/ComboDashboard";
+// OLA-Style Dashboards removed; Combo dashboards are the single source.
 import RideTrackPage from "@/pages/rider/RideTrackPage";
 import DriveRidePage from "@/pages/driver/DriveRidePage";
 import RideDetailsPage from "@/pages/rider/RideDetailsPage";
@@ -72,9 +69,6 @@ function Router() {
       {/* Rider Routes */}
       <Route path="/rider">
         <ProtectedRoute component={RiderDashboard} allowedRoles={["rider"]} />
-      </Route>
-      <Route path="/rider/dashboard-ola">
-        <ProtectedRoute component={RiderDashboardOLA} allowedRoles={["rider"]} />
       </Route>
       <Route path="/rider/history">
         <ProtectedRoute component={RideHistoryPage} allowedRoles={["rider"]} />
@@ -117,9 +111,6 @@ function Router() {
       <Route path="/driver">
         <ProtectedRoute component={DriverDashboard} allowedRoles={["driver"]} />
       </Route>
-      <Route path="/driver/dashboard-ola">
-        <ProtectedRoute component={DriverDashboardOLA} allowedRoles={["driver"]} />
-      </Route>
       <Route path="/driver/ride-management">
         <ProtectedRoute component={RideManagementPage} allowedRoles={["driver"]} />
       </Route>
@@ -139,9 +130,6 @@ function Router() {
       {/* Admin Routes */}
       <Route path="/admin">
         <ProtectedRoute component={AdminDashboard} allowedRoles={["admin"]} />
-      </Route>
-      <Route path="/admin/dashboard-ola">
-        <ProtectedRoute component={AdminDashboardOLA} allowedRoles={["admin"]} />
       </Route>
       <Route path="/admin/users">
         <ProtectedRoute component={UsersDriversPage} allowedRoles={["admin"]} />
