@@ -6,7 +6,6 @@ import {
   useMap,
 } from '@vis.gl/react-google-maps';
 import {DriverMarkers} from './DriverMarkers';
-import { MapLibreRideMap, type SimpleDriver } from './maps/MapLibreRideMap';
 import {calculateDistance, fitMapBounds} from '../utils/mapUtils';
 
 export type VehicleType = 'E-Rickshaw' | 'E-Scooter' | 'CNG';
@@ -223,38 +222,15 @@ export const MapComponentInner: React.FC<Omit<MapComponentProps, 'apiKey'>> = ({
 
 export const MapComponent: React.FC<MapComponentProps> = ({apiKey, ...rest}) => {
   const key = apiKey || (import.meta as any).env?.VITE_GOOGLE_MAPS_API_KEY;
-  const useMapLibre = ((import.meta as any).env?.VITE_USE_MAPLIBRE ?? 'false') === 'true' || !key;
-
-  if (useMapLibre) {
-    // Basic wrapper to reuse the same props for a MapLibre fallback
-    const {
-      drivers = [],
-      pickup = null,
-      drop = null,
-      style,
-      drawRoute,
-      initialCenter,
-      initialZoom,
-      onPickupSelected,
-      onDropSelected,
-      className,
-      ...restProps
-    } = rest as MapComponentProps & any;
-
-  const height = typeof style?.height === 'number' ? style.height : 320;
-  const driversArr: Driver[] = (drivers as Driver[]) || [];
-  const mlDrivers: SimpleDriver[] = driversArr.map((d: Driver) => ({ id: d.id, lat: d.lat, lng: d.lng }));
-    // Note: MapLibre fallback doesn't support click-to-select pickup/drop; show map with markers and optional route
+  if (!key) {
+    const { className, style } = rest as MapComponentProps & any;
+    const height = typeof style?.height === 'number' ? style.height : 320;
     return (
-      <div className={className} style={{ width: '100%', height: height }}>
-        <MapLibreRideMap
-          pickup={pickup || initialCenter || undefined}
-          dropoff={drop || undefined}
-          drivers={mlDrivers}
-          autoFit={true}
-          height={height}
-          path={undefined}
-        />
+      <div className={className} style={{ width: '100%', height, display: 'flex', alignItems: 'center', justifyContent: 'center', background: '#f8fafc', color: '#0f172a' }}>
+        <div style={{ textAlign: 'center' }}>
+          <div style={{ fontWeight: 700, marginBottom: 6 }}>Google Maps API key not found</div>
+          <div style={{ fontSize: 13 }}>Set VITE_GOOGLE_MAPS_API_KEY and rebuild to enable maps.</div>
+        </div>
       </div>
     );
   }

@@ -1,6 +1,5 @@
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo } from "react";
 import { APIProvider, Map, Marker, useMap } from "@vis.gl/react-google-maps";
-import { MapLibreRideMap, type LatLng as ML } from "./MapLibreRideMap";
 
 export type LatLng = { lat: number; lng: number };
 
@@ -23,21 +22,14 @@ export function RideMap({
   autoFit?: boolean;
   path?: LatLng[];
 }) {
-  const ORS_KEY = (import.meta as any).env?.VITE_ORS_API_KEY as string | undefined;
-  const useMapLibre = ((import.meta as any).env?.VITE_USE_MAPLIBRE ?? 'false') === 'true' || !apiKey;
-
-  // Fallback: render MapLibre map when Google key is missing or MapLibre explicitly requested
-  if (useMapLibre) {
+  if (!apiKey) {
     return (
-      <MapLibreRideMap
-        pickup={pickup as ML | undefined}
-        dropoff={dropoff as ML | undefined}
-        rider={rider as ML | undefined}
-        driver={driver as ML | undefined}
-        height={height}
-        autoFit={autoFit}
-        path={path as ML[] | undefined}
-      />
+      <div style={{ height, display: 'flex', alignItems: 'center', justifyContent: 'center', background: '#f8fafc', color: '#0f172a' }}>
+        <div style={{ textAlign: 'center' }}>
+          <div style={{ fontWeight: 700, marginBottom: 6 }}>Google Maps API key not found</div>
+          <div style={{ fontSize: 13 }}>Set VITE_GOOGLE_MAPS_API_KEY and rebuild to enable maps.</div>
+        </div>
+      </div>
     );
   }
 
@@ -57,48 +49,11 @@ export function RideMap({
     return pts;
   }, [pickup, dropoff, rider, driver]);
 
-  // Optional: fetch a real route polyline from OpenRouteService when a key is provided
-  const [orsPath, setOrsPath] = useState<LatLng[] | undefined>(undefined);
-  useEffect(() => {
-    let abort = false;
-    async function getRoute() {
-      if (!ORS_KEY || !pickup || !dropoff) {
-        setOrsPath(undefined);
-        return;
-      }
-      try {
-        const res = await fetch("https://api.openrouteservice.org/v2/directions/driving-car/geojson", {
-          method: "POST",
-          headers: {
-            "Content-Type": "application/json",
-            Authorization: ORS_KEY,
-          },
-          body: JSON.stringify({
-            coordinates: [
-              [pickup.lng, pickup.lat],
-              [dropoff.lng, dropoff.lat],
-            ],
-          }),
-        });
-        if (!res.ok) throw new Error(`ORS ${res.status}`);
-        const json = await res.json();
-        const coords: Array<[number, number]> = json?.features?.[0]?.geometry?.coordinates || [];
-        const pts: LatLng[] = coords.map(([lng, lat]) => ({ lat, lng }));
-        if (!abort) setOrsPath(pts.length >= 2 ? pts : undefined);
-      } catch (_e) {
-        if (!abort) setOrsPath(undefined);
-      }
-    }
-    getRoute();
-    return () => { abort = true; };
-  }, [ORS_KEY, pickup?.lat, pickup?.lng, dropoff?.lat, dropoff?.lng]);
-
   const routePath = useMemo<LatLng[] | undefined>(() => {
     if (path && path.length >= 2) return path;
-    if (orsPath && orsPath.length >= 2) return orsPath;
     if (pickup && dropoff) return [pickup, dropoff];
     return undefined;
-  }, [path, orsPath, pickup, dropoff]);
+  }, [path, pickup, dropoff]);
 
   function FitBounds({ enable, pts }: { enable: boolean; pts: LatLng[] }) {
     const map = useMap();

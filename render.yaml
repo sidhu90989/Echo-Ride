@@ -33,9 +33,6 @@ services:
       - key: VITE_GOOGLE_MAPS_API_KEY
         # value: "YOUR_GOOGLE_MAPS_BROWSER_KEY"  # <-- set this in Render after deploy
         sync: false
-      # Optional: Use MapLibre fallback (no API key needed) in preview environments
-      - key: VITE_USE_MAPLIBRE
-        value: 'false'
       # Server-side (Directions/Geocoding) can also use the same key if enabled server APIs
       - key: GOOGLE_MAPS_API_KEY
         # value: "YOUR_GOOGLE_MAPS_SERVER_KEY"  # optional

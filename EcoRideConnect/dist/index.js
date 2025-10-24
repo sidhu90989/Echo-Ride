@@ -1628,7 +1628,17 @@ async function registerRoutes(app2) {
       const firebaseUid = decoded.uid;
       const email = decoded.email || void 0;
       const name = decoded.name || (email ? email.split("@")[0] + " User" : "RideConnect User");
-      const phoneNumber = decoded.phone_number || (typeof phone === "string" ? phone : void 0);
+      const normalizePhone = (p) => {
+        if (!p) return null;
+        const trimmed = String(p).trim();
+        if (!trimmed) return null;
+        const cleanedDigits = trimmed.replace(/[^0-9+]/g, "");
+        if (cleanedDigits.startsWith("+")) {
+          return "+" + cleanedDigits.slice(1).replace(/[^0-9]/g, "");
+        }
+        return cleanedDigits.replace(/[^0-9]/g, "");
+      };
+      const phoneNumber = normalizePhone(decoded.phone_number || (typeof phone === "string" ? phone : void 0));
       const selectedRole = role === "driver" || role === "admin" ? role : "rider";
       let user = await storage.getUserByFirebaseUid(firebaseUid);
       if (!user && email) {
@@ -1675,7 +1685,9 @@ async function registerRoutes(app2) {
     } catch (e) {
       console.error("[auth] /api/auth/firebase-login error:", e);
       const msg = e?.message || "Invalid token";
-      res.status(401).json({ error: msg });
+      const isUnique = e?.code === "23505" || /users_phone_unique|unique constraint.*phone/i.test(String(e?.message || ""));
+      if (isUnique) return res.status(409).json({ error: "Phone already in use. Try logging in with that phone or remove it from another account." });
+      return res.status(401).json({ error: msg });
     }
   });
   app2.post("/api/auth/firebase-login", async (req, res) => {
@@ -1686,7 +1698,17 @@ async function registerRoutes(app2) {
       const firebaseUid = decoded.uid;
       const email = decoded.email || void 0;
       const name = decoded.name || void 0;
-      const phone = decoded.phone_number || void 0;
+      const normalizePhone = (p) => {
+        if (!p) return null;
+        const trimmed = String(p).trim();
+        if (!trimmed) return null;
+        const cleanedDigits = trimmed.replace(/[^0-9+]/g, "");
+        if (cleanedDigits.startsWith("+")) {
+          return "+" + cleanedDigits.slice(1).replace(/[^0-9]/g, "");
+        }
+        return cleanedDigits.replace(/[^0-9]/g, "");
+      };
+      const phone = normalizePhone(decoded.phone_number || void 0);
       let user = await storage.getUserByFirebaseUid(firebaseUid);
       if (!user) {
         const referralCode = generateReferralCode(name || (email || "user"));
@@ -1730,6 +1752,8 @@ async function registerRoutes(app2) {
       };
       return res.json(user);
     } catch (e) {
+      const isUnique = e?.code === "23505" || /users_phone_unique|unique constraint.*phone/i.test(String(e?.message || ""));
+      if (isUnique) return res.status(409).json({ error: "Phone already in use. Try logging in with that phone or remove it from another account." });
       return res.status(401).json({ error: e?.message || "Invalid ID token" });
     }
   });
@@ -2112,6 +2136,14 @@ var vite_config_default = defineConfig({
     react(),
     VitePWA({
       registerType: "autoUpdate",
+      workbox: {
+        // Ensure the new SW takes control without manual reload after install/update
+        clientsClaim: true,
+        skipWaiting: true,
+        // SPA fallback to index.html but do not capture API or websocket endpoints
+        navigateFallback: "/index.html",
+        navigateFallbackDenylist: [/^\/api\//, /\/ws(\/|$)/]
+      },
       includeAssets: [
         "icons/icon-192x192.png",
         "icons/icon-512x512.png"
