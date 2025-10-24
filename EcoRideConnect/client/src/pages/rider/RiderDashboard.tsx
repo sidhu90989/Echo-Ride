@@ -45,6 +45,7 @@ import {
   calculateFare,
   renderRoute,
   reverseGeocode,
+  geocodeAddress,
   loadMapsAPI,
   isMapsLoaded,
   animateMarker,
@@ -94,6 +95,8 @@ export default function RiderDashboard() {
   const [userLocation, setUserLocation] = useState<LatLng | null>(null);
   const [pickupLocation, setPickupLocation] = useState<LatLng & { address: string } | null>(null);
   const [dropLocation, setDropLocation] = useState<LatLng & { address: string } | null>(null);
+  const [pickupText, setPickupText] = useState('');
+  const [dropText, setDropText] = useState('');
   const [bookingStep, setBookingStep] = useState<BookingStep>('location');
   const [vehicleOptions, setVehicleOptions] = useState<VehicleOption[]>([]);
   const [selectedVehicle, setSelectedVehicle] = useState<VehicleType | null>(null);
@@ -179,6 +182,7 @@ export default function RiderDashboard() {
             address: place.formatted_address || place.name || ''
           };
           setPickupLocation(loc);
+          setPickupText(loc.address || '');
           
           // Update map center
           mapInstanceRef.current?.setCenter(loc);
@@ -195,6 +199,7 @@ export default function RiderDashboard() {
             address: place.formatted_address || place.name || ''
           };
           setDropLocation(loc);
+          setDropText(loc.address || '');
         }
       });
     }
@@ -331,12 +336,64 @@ export default function RiderDashboard() {
     };
   }, [user?.id]);
   
+  // Allow continuing when user typed addresses without selecting autocomplete
+  const handleContinueFromLocation = async () => {
+    try {
+      // Ensure Maps API is loaded if we need to geocode
+      const apiKey = import.meta.env.VITE_GOOGLE_MAPS_API_KEY;
+      if (!isMapsLoaded()) {
+        if (!apiKey) {
+          toast({
+            title: 'Maps not configured',
+            description: 'Please set Google Maps API key to use address search.',
+            variant: 'destructive'
+          });
+          return;
+        }
+        await loadMapsAPI(apiKey);
+      }
+
+      let updatedPickup = pickupLocation;
+      if (!updatedPickup && pickupText.trim()) {
+        const coords = await geocodeAddress(pickupText.trim());
+        const address = pickupText.trim();
+        updatedPickup = { ...coords, address };
+        setPickupLocation(updatedPickup);
+      }
+
+      let updatedDrop = dropLocation;
+      if (!updatedDrop && dropText.trim()) {
+        const coords = await geocodeAddress(dropText.trim());
+        const address = dropText.trim();
+        updatedDrop = { ...coords, address };
+        setDropLocation(updatedDrop);
+      }
+
+      if (!updatedPickup || !updatedDrop) {
+        toast({
+          title: 'Missing locations',
+          description: 'Please enter valid pickup and drop addresses.',
+          variant: 'destructive'
+        });
+        return;
+      }
+
+      setBookingStep('vehicle');
+    } catch (e) {
+      toast({
+        title: 'Address not found',
+        description: 'Please select a suggestion or try a more specific address.',
+        variant: 'destructive'
+      });
+    }
+  };
+
   const handleConfirmRide = () => {
     if (!pickupLocation || !dropLocation || !selectedVehicle || !user?.id) return;
-    
+
     const selectedOption = vehicleOptions.find(v => v.type === selectedVehicle);
     if (!selectedOption) return;
-    
+
     const rideRequest: RideRequest = {
       riderId: user.id,
       pickup: pickupLocation,
@@ -345,10 +402,10 @@ export default function RiderDashboard() {
       fare: selectedOption.fare,
       distance: 0 // Will be calculated on server
     };
-    
+
     requestRide(rideRequest);
     setBookingStep('searching');
-    
+
     toast({
       title: 'Searching for drivers...',
       description: 'Please wait while we find a driver nearby',
@@ -434,12 +491,14 @@ export default function RiderDashboard() {
                   ref={pickupInputRef}
                   placeholder="Pickup location"
                   defaultValue={pickupLocation?.address || ''}
+                  onChange={(e) => setPickupText(e.target.value)}
                   className="bg-gray-100 border-none"
                 />
                 
                 <Input
                   ref={dropInputRef}
                   placeholder="Where to?"
+                  onChange={(e) => setDropText(e.target.value)}
                   className="bg-gray-100 border-none"
                 />
               </div>
@@ -449,8 +508,8 @@ export default function RiderDashboard() {
           <div className="mt-6 flex gap-3">
             <Button
               className="flex-1 bg-green-600 hover:bg-green-700"
-              disabled={!dropLocation}
-              onClick={() => setBookingStep('vehicle')}
+              disabled={!dropLocation && !dropText.trim()}
+              onClick={handleContinueFromLocation}
             >
               Continue
             </Button>
