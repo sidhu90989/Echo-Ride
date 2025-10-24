@@ -9,6 +9,14 @@ export default defineConfig({
     react(),
     VitePWA({
       registerType: 'autoUpdate',
+      workbox: {
+        // Ensure the new SW takes control without manual reload after install/update
+        clientsClaim: true,
+        skipWaiting: true,
+        // SPA fallback to index.html but do not capture API or websocket endpoints
+        navigateFallback: '/index.html',
+        navigateFallbackDenylist: [/^\/api\//, /\/ws(\/|$)/],
+      },
       includeAssets: [
         'icons/icon-192x192.png',
         'icons/icon-512x512.png',
