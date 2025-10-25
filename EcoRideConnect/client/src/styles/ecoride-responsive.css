@@ -1,0 +1,38 @@
+/* EcoRide responsive scaffold; not imported by default. */
+
+/* Mobile (Rider/Driver App) - 0-768px */
+.ecoride-container { 
+  height: 100vh;
+  overflow: hidden; /* Prevent scrolling, use inner scrolling */
+}
+
+.map-container {
+  height: 70vh; /* Majority for map */
+}
+
+.bottom-sheet {
+  height: 30vh; /* Fixed bottom area */
+  overflow-y: auto; /* Scroll content if needed */
+}
+
+/* Tablet - 768-1024px */
+@media (min-width: 768px) {
+  .map-container { height: 65vh; }
+  .bottom-sheet { height: 35vh; }
+}
+
+/* Desktop Rider - 1024px+ */
+@media (min-width: 1024px) {
+  .ecoride-container {
+    max-width: 500px; /* Mobile-like experience */
+    margin: 0 auto;
+    box-shadow: 0 0 20px rgba(0,0,0,0.1);
+  }
+}
+
+/* Desktop Admin - 1024px+ */
+.admin-layout {
+  display: grid;
+  grid-template-columns: 280px 1fr;
+  height: 100vh;
+}
