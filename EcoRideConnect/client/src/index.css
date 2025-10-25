@@ -2,8 +2,7 @@
 @tailwind components;
 @tailwind utilities;
 
-/* EcoRide PWA responsive layout helpers (safe, opt-in by class names) */
-@import './styles/ecoride-responsive.css';
+/* EcoRide responsive helpers are imported by EcoRideLayout to avoid global CSS import order warnings */
 
 /* LIGHT MODE */
 :root {

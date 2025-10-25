@@ -1,4 +1,6 @@
 import React from 'react';
+// Local responsive helpers for EcoRide layout
+import '@/styles/ecoride-responsive.css';
 
 export type Role = 'rider' | 'driver' | 'admin';
 
