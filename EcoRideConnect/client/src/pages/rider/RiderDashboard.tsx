@@ -4,6 +4,7 @@
  */
 
 import React, { useEffect, useState, useRef } from 'react';
+import EcoRideLayout from '@/components/EcoRideLayout';
 import { useAuth } from '@/contexts/AuthContext';
 import { useLocation } from 'wouter';
 import { Button } from '@/components/ui/button';
@@ -505,63 +506,63 @@ export default function RiderDashboard() {
     return null;
   }
   
-  return (
-    <div className="relative h-screen w-full overflow-hidden bg-background">
-      {/* Map Container */}
+  const header = (
+    <div className="p-4 bg-gradient-to-b from-background/90 to-transparent">
+      <div className="flex items-center justify-between">
+        <Button
+          variant="ghost"
+          size="icon"
+          className="bg-background shadow-lg"
+          onClick={() => setShowMenu(true)}
+        >
+          <Menu className="h-5 w-5" />
+        </Button>
+        <div className="flex items-center gap-2">
+          {(canInstall || isIOS) && !installed && !isStandalone && (
+            <Button
+              size="sm"
+              variant="outline"
+              className="rounded-full bg-background shadow-lg"
+              onClick={async () => {
+                if (isIOS) {
+                  toast({
+                    title: 'Add to Home Screen',
+                    description: 'Use the Share button → Add to Home Screen',
+                  });
+                } else {
+                  await promptInstall();
+                }
+              }}
+            >
+              <Download className="h-4 w-4 mr-2" />
+              Install App
+            </Button>
+          )}
+          <div className="flex items-center gap-2 bg-background rounded-full px-4 py-2 shadow-lg">
+            <Wallet className="h-4 w-4 text-green-600" />
+            <span className="text-sm font-semibold">₹0</span>
+          </div>
+        </div>
+      </div>
+    </div>
+  );
+
+  const mapArea = (
+    <div className="relative w-full h-full">
       <div ref={mapRef} className="absolute inset-0 h-full w-full" />
-      
-      {/* Loading Overlay */}
       {isLoadingLocation && (
         <div className="absolute inset-0 z-10 flex items-center justify-center bg-background/80 backdrop-blur-sm">
           <LoadingSpinner />
           <p className="ml-3 text-lg">Getting your location...</p>
         </div>
       )}
-      
-      {/* Top Bar */}
-      <div className="absolute top-0 left-0 right-0 z-20 p-4 bg-gradient-to-b from-background/90 to-transparent">
-        <div className="flex items-center justify-between">
-          <Button
-            variant="ghost"
-            size="icon"
-            className="bg-background shadow-lg"
-            onClick={() => setShowMenu(true)}
-          >
-            <Menu className="h-5 w-5" />
-          </Button>
-          
-          <div className="flex items-center gap-2">
-            {(canInstall || isIOS) && !installed && !isStandalone && (
-              <Button
-                size="sm"
-                variant="outline"
-                className="rounded-full bg-background shadow-lg"
-                onClick={async () => {
-                  if (isIOS) {
-                    toast({
-                      title: 'Add to Home Screen',
-                      description: 'Use the Share button → Add to Home Screen',
-                    });
-                  } else {
-                    await promptInstall();
-                  }
-                }}
-              >
-                <Download className="h-4 w-4 mr-2" />
-                Install App
-              </Button>
-            )}
-            <div className="flex items-center gap-2 bg-background rounded-full px-4 py-2 shadow-lg">
-              <Wallet className="h-4 w-4 text-green-600" />
-              <span className="text-sm font-semibold">₹0</span>
-            </div>
-          </div>
-        </div>
-      </div>
-      
-      {/* Bottom Sheet - Location Selection */}
+    </div>
+  );
+
+  const bottomPanel = (
+    <>
       {bookingStep === 'location' && (
-        <div className="absolute bottom-0 left-0 right-0 z-20 bg-background rounded-t-3xl shadow-2xl p-6 max-h-[50vh] overflow-y-auto">
+        <div className="bg-background rounded-t-3xl shadow-2xl p-6 max-h-[50vh] overflow-y-auto">
           <div className="w-12 h-1 bg-gray-300 rounded-full mx-auto mb-6" />
           
           <h2 className="text-xl font-bold mb-4">Where do you want to go?</h2>
@@ -610,9 +611,8 @@ export default function RiderDashboard() {
         </div>
       )}
       
-      {/* Bottom Sheet - Vehicle Selection */}
       {bookingStep === 'vehicle' && (
-        <div className="absolute bottom-0 left-0 right-0 z-20 bg-background rounded-t-3xl shadow-2xl p-6 max-h-[70vh] overflow-y-auto">
+        <div className="bg-background rounded-t-3xl shadow-2xl p-6 max-h-[70vh] overflow-y-auto">
           <div className="w-12 h-1 bg-gray-300 rounded-full mx-auto mb-4" />
           
           <Button
@@ -673,9 +673,8 @@ export default function RiderDashboard() {
         </div>
       )}
       
-      {/* Searching for Driver */}
       {bookingStep === 'searching' && (
-        <div className="absolute bottom-0 left-0 right-0 z-20 bg-background rounded-t-3xl shadow-2xl p-8 text-center">
+        <div className="bg-background rounded-t-3xl shadow-2xl p-8 text-center">
           <div className="mx-auto mb-4">
             <LoadingSpinner />
           </div>
@@ -694,10 +693,8 @@ export default function RiderDashboard() {
           </Button>
         </div>
       )}
-      
-      {/* Active Ride */}
       {bookingStep === 'active' && currentRide && (
-        <div className="absolute bottom-0 left-0 right-0 z-20 bg-background rounded-t-3xl shadow-2xl p-6">
+        <div className="bg-background rounded-t-3xl shadow-2xl p-6">
           <div className="w-12 h-1 bg-gray-300 rounded-full mx-auto mb-4" />
           
           <div className="flex items-center gap-4 mb-4">
@@ -727,7 +724,12 @@ export default function RiderDashboard() {
           </div>
         </div>
       )}
-      
+    </>
+  );
+
+  return (
+    <>
+      <EcoRideLayout role="rider" header={header} mapArea={mapArea} bottomPanel={bottomPanel} />
       {/* Menu Drawer */}
       <Dialog open={showMenu} onOpenChange={setShowMenu}>
         <DialogContent className="sm:max-w-md">
@@ -780,6 +782,6 @@ export default function RiderDashboard() {
           </div>
         </DialogContent>
       </Dialog>
-    </div>
+    </>
   );
 }
